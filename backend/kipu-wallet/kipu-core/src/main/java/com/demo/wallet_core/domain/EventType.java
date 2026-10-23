@@ -1,0 +1,5 @@
+package com.demo.wallet_core.domain;
+
+public enum EventType {
+	ONBOARDING_STARTED, ONBOARDING_STEP_COMPLETED, ONBOARDING_COMPLETED, PAYMENT_SUCCEEDED
+}
