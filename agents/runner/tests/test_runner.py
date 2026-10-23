@@ -37,6 +37,11 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             GeneratedFile(path="proposal.md", content="draft", approved=True)
 
+    def test_normalizes_criterion_spellings(self):
+        output = StageOutput(summary="x", covered_criteria=["CA-1", "ca2", "3", "HU-01-CA4", "CA1"])
+        self.assertEqual(output.covered_criteria, ["CA1", "CA2", "CA3", "CA4"])
+        self.assertEqual(StageOutput(summary="x", covered_criteria=["CA99x"]).covered_criteria, ["CA99x"])
+
 
 class CopilotProviderTests(unittest.TestCase):
     def policy(self, **updates):

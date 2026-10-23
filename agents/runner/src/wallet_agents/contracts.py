@@ -1,6 +1,7 @@
 """Traceability contracts and validated runtime outputs."""
 
 from dataclasses import dataclass
+import re
 from decimal import Decimal
 from typing import Literal
 
@@ -161,10 +162,23 @@ class GeneratedFile(RuntimeModel):
     _path = field_validator("path")(safe_relative)
 
 
+def normalize_criteria(values):
+    """Map spellings such as 'CA-1', 'ca 1', '1' or 'HU-01-CA1' to the canonical 'CA1'."""
+    if not isinstance(values, list):
+        return values
+    result = []
+    for value in values:
+        match = re.fullmatch(r"(?:HU-?\d+[\s_:/.-]*)?(?:CA|AC)?[\s_.-]*(\d+)", value.strip(), re.I) if isinstance(value, str) else None
+        result.append(f"CA{int(match.group(1))}" if match else value)
+    return list(dict.fromkeys(result))
+
+
 class PlannedTask(RuntimeModel):
     task_id: str = Field(pattern=r"^[0-9]+\.[0-9]+$")
     owner: Literal["backend_engineer", "frontend_engineer", "platform_engineer"]
-    criteria: list[str] = Field(min_length=1)
+    criteria: list[str] = Field(min_length=1, description="Criterion IDs exactly as CA1, CA2, ...")
+
+    _criteria = field_validator("criteria", mode="before")(normalize_criteria)
     scenarios: list[str] = Field(min_length=1)
     paths: list[str] = Field(min_length=1)
     checks: list[str] = Field(min_length=1)
@@ -178,10 +192,12 @@ class PlannedTask(RuntimeModel):
 class StageOutput(RuntimeModel):
     summary: str = Field(min_length=1, max_length=20_000)
     files: list[GeneratedFile] = Field(default_factory=list, max_length=100)
-    covered_criteria: list[str] = Field(min_length=1)
+    covered_criteria: list[str] = Field(min_length=1, description="Criterion IDs exactly as CA1, CA2, ...")
     blockers: list[str] = Field(default_factory=list)
     tasks: list[PlannedTask] = Field(default_factory=list)
     verdict: Literal["draft", "pass", "changes_required"] = "draft"
+
+    _covered = field_validator("covered_criteria", mode="before")(normalize_criteria)
 
     @field_validator("files")
     @classmethod
