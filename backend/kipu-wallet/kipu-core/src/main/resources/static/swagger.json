@@ -1,0 +1,544 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Wallet Core API",
+    "version": "0.0.1",
+    "description": "API del MVP de wallet (Peru): onboarding, autenticacion provisional, pagos de bajo monto con idempotencia, historial y conciliacion.\n\nNotas:\n- Los montos se expresan en centimos de PEN (`amountCents`); la moneda siempre es `PEN`.\n- La autenticacion es PROVISIONAL (login solo por correo) y esta pendiente de aprobar el proveedor/protocolo.\n- El limite de monto, la ventana de idempotencia y la vigencia del token son configuracion externa pendiente de decision de Producto.\n- Los errores usan `application/problem+json` (RFC 9457) con la propiedad `code`."
+  },
+  "servers": [
+    { "url": "http://localhost:8080", "description": "Desarrollo local" }
+  ],
+  "tags": [
+    { "name": "Onboarding", "description": "Registro guiado; no requiere autenticacion." },
+    { "name": "Auth", "description": "Inicio de sesion provisional." },
+    { "name": "Payments", "description": "Pagos entre wallets; requieren Bearer token." },
+    { "name": "Operations", "description": "Health y readiness." }
+  ],
+  "paths": {
+    "/api/v1/onboardings": {
+      "post": {
+        "tags": ["Onboarding"],
+        "operationId": "startOnboarding",
+        "summary": "Inicia un onboarding",
+        "description": "Crea el flujo y emite el evento `ONBOARDING_STARTED`.",
+        "parameters": [{ "$ref": "#/components/parameters/CorrelationId" }],
+        "responses": {
+          "201": {
+            "description": "Onboarding creado; el paso actual es `IDENTITY`.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "X-Correlation-Id": { "$ref": "#/components/headers/CorrelationIdResponse" }
+            },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OnboardingView" } } }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/onboardings/{id}": {
+      "get": {
+        "tags": ["Onboarding"],
+        "operationId": "getOnboarding",
+        "summary": "Consulta el progreso de un onboarding",
+        "parameters": [{ "$ref": "#/components/parameters/OnboardingId" }],
+        "responses": {
+          "200": {
+            "description": "Progreso actual con la lista de pasos y su estado.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OnboardingView" } } }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/onboardings/{id}/steps/identity": {
+      "put": {
+        "tags": ["Onboarding"],
+        "operationId": "submitIdentityStep",
+        "summary": "Registra DNI y nombres",
+        "description": "Puede reenviarse para corregir datos mientras el onboarding este `IN_PROGRESS`. El evento de paso se emite solo la primera vez.",
+        "parameters": [
+          { "$ref": "#/components/parameters/OnboardingId" },
+          { "$ref": "#/components/parameters/CorrelationId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/IdentityRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Paso registrado; el siguiente paso es `CONTACT`.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OnboardingView" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/onboardings/{id}/steps/contact": {
+      "put": {
+        "tags": ["Onboarding"],
+        "operationId": "submitContactStep",
+        "summary": "Registra correo y celular",
+        "description": "Requiere el paso `IDENTITY` completado; de lo contrario responde `409 STEP_OUT_OF_ORDER`. El correo se normaliza a minusculas.",
+        "parameters": [
+          { "$ref": "#/components/parameters/OnboardingId" },
+          { "$ref": "#/components/parameters/CorrelationId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContactRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Paso registrado; el siguiente paso es `CONFIRMATION`.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OnboardingView" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/onboardings/{id}/complete": {
+      "post": {
+        "tags": ["Onboarding"],
+        "operationId": "completeOnboarding",
+        "summary": "Completa el onboarding y activa la wallet",
+        "description": "Crea el usuario y su wallet activa (saldo inicial 0) y emite los eventos de cierre. Los datos personales dejan de conservarse en el registro de progreso. Si el correo o el DNI ya estan registrados responde `409 REGISTRATION_CONFLICT` sin indicar cual coincide.",
+        "parameters": [
+          { "$ref": "#/components/parameters/OnboardingId" },
+          { "$ref": "#/components/parameters/CorrelationId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Onboarding `COMPLETED`; incluye `walletId`.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OnboardingView" } } }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "login",
+        "summary": "Inicia sesion (provisional, solo correo)",
+        "description": "Un usuario inexistente recibe `401 INVALID_CREDENTIALS` con un mensaje generico que no revela informacion sensible.",
+        "parameters": [{ "$ref": "#/components/parameters/CorrelationId" }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Token de acceso Bearer.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginResponse" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/payments/preview": {
+      "post": {
+        "tags": ["Payments"],
+        "operationId": "previewPayment",
+        "summary": "Muestra destino y monto antes de confirmar",
+        "description": "No mueve dinero. Aplica las mismas validaciones previas al envio que la confirmacion (limite de monto, destino distinto del pagador y disponible).",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Identidad enmascarada del destino y monto.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentPreview" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/Unprocessable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/payments": {
+      "post": {
+        "tags": ["Payments"],
+        "operationId": "createPayment",
+        "summary": "Confirma un pago",
+        "description": "Idempotente por pagador, monto, destino y ventana de intento (clave derivada en el servidor, no se envia cabecera). Un intento nuevo responde `201` con su unico estado terminal (`SUCCEEDED` o `FAILED`). Una repeticion equivalente dentro de la ventana responde `200` con el resultado original, sin otro debito, y queda auditada como `DUPLICATE`.\n\nUn saldo insuficiente produce `201` con `status=FAILED`, `failureReason=INSUFFICIENT_FUNDS` y `nextAction=BACK`, sin debito. Las validaciones previas (monto sobre el limite, mismo wallet, destino no disponible) responden `4xx` y no crean pago.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/CorrelationId" }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentRequest" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Intento nuevo procesado.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/RequestId" },
+              "X-Correlation-Id": { "$ref": "#/components/headers/CorrelationIdResponse" }
+            },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentView" } } }
+          },
+          "200": {
+            "description": "Repeticion equivalente: resultado original sin nuevo debito.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentView" } } }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "422": { "$ref": "#/components/responses/Unprocessable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/payments/history": {
+      "get": {
+        "tags": ["Payments"],
+        "operationId": "getPaymentHistory",
+        "summary": "Historial de pagos exitosos del pagador autenticado",
+        "description": "Ordenado del mas reciente al mas antiguo; solo incluye pagos `SUCCEEDED`.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Pagos exitosos.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/PaymentView" } }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/payments/reconciliation": {
+      "get": {
+        "tags": ["Payments"],
+        "operationId": "getReconciliation",
+        "summary": "Salida de conciliacion de los pagos del pagador autenticado",
+        "description": "Cada fila es una solicitud auditada y se distingue el intento `ORIGINAL` de los `DUPLICATE`, con request id y correlation id. Alcance acotado al pagador (no hay rol de operaciones definido).",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Filas de conciliacion, mas recientes primero.",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ReconciliationRow" } }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/v1/payments/{reference}": {
+      "get": {
+        "tags": ["Payments"],
+        "operationId": "getPayment",
+        "summary": "Consulta un pago propio por referencia",
+        "description": "Solo el pagador puede leer el pago; para cualquier otro usuario responde `404`.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "reference",
+            "in": "path",
+            "required": true,
+            "description": "Referencia de transaccion, por ejemplo `PAY-3F9A1C0D5B7E2A64`.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pago con su estado terminal.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaymentView" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/actuator/health": {
+      "get": {
+        "tags": ["Operations"],
+        "operationId": "health",
+        "summary": "Estado general",
+        "responses": {
+          "200": { "description": "UP", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } },
+          "503": { "description": "DOWN", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } }
+        }
+      }
+    },
+    "/actuator/health/liveness": {
+      "get": {
+        "tags": ["Operations"],
+        "operationId": "liveness",
+        "summary": "Liveness probe",
+        "responses": {
+          "200": { "description": "UP", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } }
+        }
+      }
+    },
+    "/actuator/health/readiness": {
+      "get": {
+        "tags": ["Operations"],
+        "operationId": "readiness",
+        "summary": "Readiness probe",
+        "responses": {
+          "200": { "description": "UP", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } },
+          "503": { "description": "OUT_OF_SERVICE", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Health" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Token devuelto por `/api/v1/auth/login`. Esquema provisional."
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "Identificador de la solicitud generado por el servidor.",
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "CorrelationIdResponse": {
+        "description": "Eco del `X-Correlation-Id` recibido si es valido; en caso contrario, igual al `X-Request-Id`.",
+        "schema": { "type": "string" }
+      }
+    },
+    "parameters": {
+      "CorrelationId": {
+        "name": "X-Correlation-Id",
+        "in": "header",
+        "required": false,
+        "description": "Identificador de correlacion del cliente (1-64 caracteres `A-Za-z0-9_-`). Si falta o es invalido, el servidor usa el request id. Se audita en eventos y pagos.",
+        "schema": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" }
+      },
+      "OnboardingId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Identificador del onboarding.",
+        "schema": { "type": "string", "format": "uuid" }
+      }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "Datos invalidos o faltantes (`VALIDATION_ERROR`). `errors` mapea cada campo a un mensaje accionable; no se devuelven los valores enviados.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "Unauthorized": {
+        "description": "Credenciales invalidas (`INVALID_CREDENTIALS`) o token ausente, invalido o expirado (`UNAUTHENTICATED`).",
+        "headers": {
+          "WWW-Authenticate": { "schema": { "type": "string", "example": "Bearer" } }
+        },
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "NotFound": {
+        "description": "Recurso no encontrado (`NOT_FOUND`).",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "Conflict": {
+        "description": "Conflicto de estado: `STEP_OUT_OF_ORDER`, `ONBOARDING_INCOMPLETE`, `ONBOARDING_ALREADY_COMPLETED` o `REGISTRATION_CONFLICT`.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "Unprocessable": {
+        "description": "Regla de negocio previa al envio: `AMOUNT_ABOVE_LIMIT`, `SAME_WALLET` o `DESTINATION_UNAVAILABLE`.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      },
+      "InternalError": {
+        "description": "Error inesperado; el mensaje es generico y no expone detalles internos.",
+        "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+      }
+    },
+    "schemas": {
+      "IdentityRequest": {
+        "type": "object",
+        "required": ["dni", "names"],
+        "properties": {
+          "dni": { "type": "string", "pattern": "^\\d{8}$", "example": "00000001", "description": "Exactamente 8 digitos." },
+          "names": { "type": "string", "minLength": 1, "maxLength": 150, "example": "Ana Demo" }
+        }
+      },
+      "ContactRequest": {
+        "type": "object",
+        "required": ["email", "phone"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "maxLength": 254, "example": "ana.demo@example.test" },
+          "phone": { "type": "string", "pattern": "^9\\d{8}$", "example": "900000001", "description": "9 digitos y empieza con 9." }
+        }
+      },
+      "StepView": {
+        "type": "object",
+        "required": ["step", "state"],
+        "properties": {
+          "step": { "$ref": "#/components/schemas/OnboardingStep" },
+          "state": { "type": "string", "enum": ["COMPLETED", "CURRENT", "PENDING"] }
+        }
+      },
+      "OnboardingStep": {
+        "type": "string",
+        "enum": ["IDENTITY", "CONTACT", "CONFIRMATION"]
+      },
+      "OnboardingView": {
+        "type": "object",
+        "required": ["onboardingId", "status", "steps"],
+        "properties": {
+          "onboardingId": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["IN_PROGRESS", "COMPLETED"] },
+          "currentStep": {
+            "nullable": true,
+            "allOf": [{ "$ref": "#/components/schemas/OnboardingStep" }],
+            "description": "Paso actual; `null` cuando el onboarding esta completado."
+          },
+          "steps": { "type": "array", "items": { "$ref": "#/components/schemas/StepView" } },
+          "walletId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Presente solo cuando el onboarding esta `COMPLETED`."
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "ana.demo@example.test" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "required": ["accessToken", "tokenType", "expiresAt"],
+        "properties": {
+          "accessToken": { "type": "string" },
+          "tokenType": { "type": "string", "enum": ["Bearer"] },
+          "expiresAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "PaymentRequest": {
+        "type": "object",
+        "required": ["destinationWalletId", "amountCents"],
+        "properties": {
+          "destinationWalletId": { "type": "string", "format": "uuid" },
+          "amountCents": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "example": 2500,
+            "description": "Monto en centimos de PEN. El maximo lo define `wallet.payments.max-amount-cents` (pendiente de decision de Producto)."
+          }
+        }
+      },
+      "DestinationView": {
+        "type": "object",
+        "required": ["walletId", "displayName"],
+        "properties": {
+          "walletId": { "type": "string", "format": "uuid" },
+          "displayName": { "type": "string", "example": "Beto D. D.", "description": "Primer nombre completo e iniciales del resto." }
+        }
+      },
+      "PaymentPreview": {
+        "type": "object",
+        "required": ["destination", "amountCents", "currency"],
+        "properties": {
+          "destination": { "$ref": "#/components/schemas/DestinationView" },
+          "amountCents": { "type": "integer", "format": "int64" },
+          "currency": { "type": "string", "enum": ["PEN"] }
+        }
+      },
+      "PaymentView": {
+        "type": "object",
+        "required": ["reference", "status", "amountCents", "currency", "destination", "nextAction", "createdAt"],
+        "properties": {
+          "reference": { "type": "string", "example": "PAY-3F9A1C0D5B7E2A64" },
+          "status": {
+            "type": "string",
+            "enum": ["SUCCEEDED", "FAILED", "EXPIRED"],
+            "description": "Unico estado terminal del intento. `EXPIRED` esta definido pero aun no lo produce ningun flujo."
+          },
+          "amountCents": { "type": "integer", "format": "int64" },
+          "currency": { "type": "string", "enum": ["PEN"] },
+          "destination": { "$ref": "#/components/schemas/DestinationView" },
+          "failureReason": { "type": "string", "enum": ["INSUFFICIENT_FUNDS"], "nullable": true },
+          "nextAction": {
+            "type": "string",
+            "enum": ["NONE", "RETRY", "BACK"],
+            "description": "Siguiente accion para el pagador: `NONE` si fue exitoso, `BACK` si fallo, `RETRY` si expiro."
+          },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ReconciliationRow": {
+        "type": "object",
+        "required": ["auditId", "kind", "paymentReference", "paymentStatus", "amountCents", "idempotencyKey", "requestId", "correlationId", "receivedAt"],
+        "properties": {
+          "auditId": { "type": "string", "format": "uuid" },
+          "kind": { "type": "string", "enum": ["ORIGINAL", "DUPLICATE"] },
+          "paymentReference": { "type": "string" },
+          "paymentStatus": { "type": "string", "enum": ["SUCCEEDED", "FAILED", "EXPIRED"] },
+          "amountCents": { "type": "integer", "format": "int64" },
+          "idempotencyKey": { "type": "string", "description": "SHA-256 hexadecimal (64 caracteres)." },
+          "requestId": { "type": "string" },
+          "correlationId": { "type": "string" },
+          "receivedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "description": "Problem Details (RFC 9457) con propiedades de extension.",
+        "required": ["status", "detail"],
+        "properties": {
+          "type": { "type": "string", "example": "about:blank" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" },
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_ERROR",
+              "INVALID_CREDENTIALS",
+              "UNAUTHENTICATED",
+              "NOT_FOUND",
+              "STEP_OUT_OF_ORDER",
+              "ONBOARDING_INCOMPLETE",
+              "ONBOARDING_ALREADY_COMPLETED",
+              "REGISTRATION_CONFLICT",
+              "AMOUNT_ABOVE_LIMIT",
+              "SAME_WALLET",
+              "DESTINATION_UNAVAILABLE"
+            ],
+            "description": "Ausente en los errores genericos 500."
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": { "type": "string" },
+            "description": "Solo en `VALIDATION_ERROR`: campo -> mensaje accionable."
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "example": "UP" }
+        }
+      }
+    }
+  }
+}

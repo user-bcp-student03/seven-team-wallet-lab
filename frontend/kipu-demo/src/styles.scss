@@ -1,0 +1,285 @@
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: dark;
+
+  @include mat.theme(
+    (
+      color: (
+        theme-type: dark,
+        primary: mat.$orange-palette,
+      ),
+      typography: (
+        plain-family: system-ui,
+        brand-family: system-ui,
+      ),
+      density: 0,
+    )
+  );
+}
+
+:root {
+  --wl-bg: #070e24;
+  --wl-screen-top: #10265c;
+  --wl-screen-bottom: #091330;
+  --wl-panel: rgba(30, 58, 125, 0.35);
+  --wl-border: rgba(120, 160, 255, 0.22);
+  --wl-muted: #a9b8dc;
+  --wl-orange: #ff7a00;
+  --wl-blue: #1e9bff;
+  --wl-green: #22c55e;
+
+  --mat-sys-primary: var(--wl-orange);
+  --mat-sys-on-primary: #1c0f00;
+}
+
+body {
+  box-sizing: border-box;
+  margin: 0;
+  min-height: 100dvh;
+  background: radial-gradient(ellipse at top, #0d1c47 0%, var(--wl-bg) 60%);
+  color: #fff;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.frame {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 440px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 16px 16px 20px;
+  background: linear-gradient(180deg, var(--wl-screen-top), var(--wl-screen-bottom));
+}
+
+@media (min-width: 600px) {
+  body {
+    padding: 16px 0;
+  }
+
+  .frame {
+    min-height: calc(100dvh - 32px);
+    border: 1px solid var(--wl-border);
+    border-radius: 32px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+}
+
+@media (max-height: 700px) {
+  .frame {
+    gap: 8px;
+    padding-top: 12px;
+  }
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.center {
+  text-align: center;
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--wl-muted);
+}
+
+.link {
+  color: var(--wl-blue);
+  font-size: 13px;
+}
+
+.alert {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 107, 107, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 107, 107, 0.12);
+  color: #ffc4c4;
+  font-size: 13px;
+}
+
+.alert--ok {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.12);
+  color: #b7f5cb;
+}
+
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+.qr-card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  align-self: center;
+  padding: 14px;
+  border-radius: 18px;
+  background: #fff;
+  color: #0b1535;
+}
+
+.qr-card img {
+  display: block;
+  width: min(200px, 56vw);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+a.wl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.panel {
+  padding: 12px;
+  border: 1px solid var(--wl-border);
+  border-radius: 14px;
+  background: var(--wl-panel);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.16);
+  font-size: 10px;
+  font-weight: 600;
+  color: #4ade80;
+}
+
+.chip--warn {
+  border-color: rgba(255, 122, 0, 0.45);
+  background: rgba(255, 122, 0, 0.16);
+  color: #ffb066;
+}
+
+.chip--bad {
+  border-color: rgba(255, 107, 107, 0.45);
+  background: rgba(255, 107, 107, 0.14);
+  color: #ff9b9b;
+}
+
+.chip--info {
+  border-color: rgba(30, 155, 255, 0.45);
+  background: rgba(30, 155, 255, 0.16);
+  color: #8fd0ff;
+}
+
+.chip--dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wl-green);
+}
+
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--wl-blue);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.status {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.status__icon {
+  width: 92px;
+  height: 92px;
+}
+
+.status__title {
+  margin: 6px 0 0;
+  font-size: 19px;
+}
+
+.status__text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--wl-muted);
+}
+
+// Botones Material con el aspecto de la maqueta (píldora, altura 44px).
+.wl-btn.mat-mdc-button-base {
+  --mat-button-filled-container-height: 44px;
+  --mat-button-outlined-container-height: 44px;
+  --mat-button-filled-container-shape: 999px;
+  --mat-button-outlined-container-shape: 999px;
+  width: 100%;
+  font-weight: 700;
+}
+
+.wl-btn--primary.mat-mdc-button-base {
+  --mat-button-filled-container-color: var(--wl-orange);
+  --mat-button-filled-label-text-color: #1c0f00;
+}
+
+.wl-btn--blue.mat-mdc-button-base {
+  --mat-button-filled-container-color: var(--wl-blue);
+  --mat-button-filled-label-text-color: #04121f;
+}
+
+.wl-btn--tab-active.mat-mdc-button-base {
+  --mat-button-filled-container-color: #fff;
+  --mat-button-filled-label-text-color: #0b1535;
+}
+
+.wl-btn--ghost.mat-mdc-button-base {
+  --mat-button-outlined-container-color: transparent;
+  --mat-button-outlined-outline-color: rgba(255, 255, 255, 0.6);
+  --mat-button-outlined-label-text-color: #fff;
+  background-color: transparent;
+}
