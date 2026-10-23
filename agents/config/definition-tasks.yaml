@@ -30,7 +30,7 @@ design_architecture:
     replay/conflicto, modelo de datos, fronteras atomicas, e infraestructura de
     soporte (esquema Flyway, filtro, retencion, metricas y arnes Testcontainers)
     reflejada en C2/C3 y OpenAPI, sin Redis, broker, simuladores ni nuevas bases,
-    y con Q-07 como bloqueo abierto. Los pagos son transferencias internas entre
+    y con la decision de laboratorio Q-07 ya cerrada (ver open-questions.md). Los pagos son transferencias internas entre
     contactos en una transaccion local; la identidad es una tabla de usuarios con
     claves hasheadas en PostgreSQL y sesion de servidor, sin Keycloak/OIDC ni
     proveedores externos o simulados.

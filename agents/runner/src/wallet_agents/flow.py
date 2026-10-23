@@ -127,9 +127,9 @@ class WalletOrchestrationFlow:
                     for path in source.rglob("*"):
                         if path.is_file():
                             relative = path.relative_to(self.repository).as_posix()
-                            checked = confined(self.repository, relative)
                             if any(part.startswith(".") for part in path.relative_to(source).parts):
                                 continue
+                            checked = confined(self.repository, relative)
                             if checked.stat().st_size > 500_000:
                                 raise RunnerError("Baseline contains an oversized file")
                             destination = confined(root, "workspace/" + relative)

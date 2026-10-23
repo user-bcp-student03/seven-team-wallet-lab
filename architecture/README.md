@@ -25,11 +25,11 @@ Los detalles siguientes son propuestas que se refinan mediante OpenSpec y ADR.
 | Resiliencia | Resilience4j, timeouts y backoff con jitter configurables | Llamadas a Meilisearch y workers; el pago es una transaccion local sin llamadas externas |
 | Estados web | Consulta autoritativa por referencia via BFF | HU-02; la ausencia de un hit en Meilisearch no prueba ausencia de pago |
 | Control de duplicados | Evidencia SQL original/reintento | HU-04 CA4; conciliacion diaria y Spring Batch diferidos con HU-06 |
-| Idempotencia | Header `Idempotency-Key`, tabla con UNIQUE por ambito, fingerprint canonico y filtro de entrada en PostgreSQL; la clave y el pago se confirman en la misma transaccion | HU-04; ADR-0002. Retencion y ventana pendientes de Q-07; sin Redis |
+| Idempotencia | Header `Idempotency-Key`, tabla con UNIQUE por ambito, fingerprint canonico y filtro de entrada en PostgreSQL; la clave y el pago se confirman en la misma transaccion | HU-04; ADR-0002. Ventana de replay y retencion segun la decision cerrada Q-07; sin Redis |
 | Analitica | Eventos de negocio deduplicados y proyecciones SQL | Funnel, duracion, MAU y CAC HU-01/HU-02 |
 | Observabilidad | OTel Java agent/SDK, Collector, Prometheus, Tempo, Loki, Grafana | Trazas, metricas, logs y correlacion sin PII |
 | Datos de prueba | Seeds sinteticos: usuarios, contactos y saldos ficticios; fixtures reproducibles | Sin proveedores ni simuladores externos; escenarios de concurrencia y reintento se prueban contra el propio backend |
-| Pruebas | JUnit 5, AssertJ, Testcontainers PostgreSQL/Meilisearch, ArchUnit; TestBed y Playwright | Dominio, concurrencia, aislamiento del indice, reindex y E2E; conectividad con Podman por validar |
+| Pruebas | JUnit 5, AssertJ, ArchUnit, Testcontainers PostgreSQL/Meilisearch; Vitest/TestBed y Playwright | Dominio, concurrencia, aislamiento del indice, reindex y E2E. En los checks del runner (sin motor de contenedores): PostgreSQL 18 efimero en la imagen y Vitest/jsdom; Meilisearch real, Playwright y Compose quedan para validacion humana |
 | Seguridad CI | Secret scanning, SAST, SCA, SBOM CycloneDX, ZAP baseline | Evidencia de controles, no certificacion |
 | Entorno | Imagenes OCI, builds multistage y Compose Docker/Podman Desktop | Aplicaciones y dependencias en contenedores; Maven/Node en imagenes, no en el host |
 | Agentes | CrewAI en contenedor/perfil de herramientas separado | Diseno/construccion supervisados; sin acceso al plano financiero ni socket del motor |
@@ -74,5 +74,6 @@ BFF impone ownership y nunca entrega credenciales de busqueda al navegador.
 - [Seguridad y modelo de amenazas inicial](security.md)
 - [Observabilidad y metricas de negocio](observability.md)
 
-Las versiones exactas se resolveran en Q-16 usando versiones soportadas y
-compatibles con Java 21. No hay lockfiles ni dependencias instaladas del producto.
+Las versiones exactas se fijaron en Q-16 ([registro](../docs/requirements/open-questions.md#registro-de-resolucion))
+y se pinearan por digest al crear los esqueletos. No hay lockfiles ni dependencias
+instaladas del producto.

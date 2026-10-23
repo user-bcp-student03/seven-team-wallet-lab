@@ -80,7 +80,7 @@ el alcance sin aprobacion.
 5. Aplicar [wallet-architecture](../skills/wallet-architecture/SKILL.md) para
    generar C4 y OpenAPI consistentes. Recibir apoyo de
    [ledger-idempotency](../skills/ledger-idempotency/SKILL.md) y
-   [application-security](../skills/application-security/SKILL.md) sin sustituir
+  [wallet-access-control](../skills/application-security/wallet-access-control.md) sin sustituir
    revisiones independientes ni delegar o activar agentes por cuenta propia.
 6. Especificar guardrails, escenarios de fallo, checks y responsables de revision.
    Documentar bloqueos y entregar a Security/Testing antes del gate humano.
@@ -135,7 +135,7 @@ implementado/verificado. Cubrir como minimo:
 | Integridad financiera | PostgreSQL como fuente financiera; doble partida y asientos inmutables; importes decimales exactos con moneda explicita, nunca float/double. Proponer pruebas de invariantes y atomicidad. |
 | CQRS | Meilisearch solo como proyeccion eventual reconstruible; sin saldos, autorizacion o idempotencia. Sin dual write financiero; proponer pruebas de lag, caida, ownership y reindexacion. |
 | Distribucion y fallos | El pago, la clave de idempotencia y el outbox se confirman en una sola transaccion SQL sin llamadas externas; probar concurrencia, crash antes del commit y duplicados. |
-| Idempotencia | Clave obligatoria por ambito pagador/canal/operacion, fingerprint canonico y UNIQUE en PostgreSQL; replay devuelve el resultado original y conflicto no mueve fondos. Probar con PostgreSQL real concurrencia, replay, conflicto, crash y reintento sin doble cobro; la retencion sigue pendiente de Q-07. |
+| Idempotencia | Clave obligatoria por ambito pagador/canal/operacion, fingerprint canonico y UNIQUE en PostgreSQL; replay devuelve el resultado original y conflicto no mueve fondos. Probar con PostgreSQL real concurrencia, replay, conflicto, crash y reintento sin doble cobro; ventana y retencion segun la decision cerrada Q-07. |
 | Timeout del cliente | Un timeout no demuestra fracaso. El cliente reintenta con la misma clave de idempotencia y obtiene el resultado original; verificar consulta autoritativa por referencia sin doble cobro. |
 | Seguridad y privacidad | Ownership por objeto en servidor, minimo privilegio, secretos fuera de Git, sin credenciales del indice en navegador ni PII/tokens en telemetria. Proponer pruebas negativas de acceso y revision de datos expuestos. |
 | Contratos y UX | API, mensajes y estados Angular coherentes; no mostrar exito financiero solo por aceptacion HTTP ni inferir ausencia de pago desde el indice. Verificar escenarios de contrato y UI. |
@@ -147,7 +147,9 @@ implementado/verificado. Cubrir como minimo:
 
 Disenar la idempotencia como un mecanismo durable en PostgreSQL, alineado con
 [ADR-0002](../../architecture/adr/0002-postgresql-ledger-idempotency.md), HU-04 y
-los bloqueos Q-04/Q-05/Q-07/Q-10. Registrar como propuesta lo que no este
+los bloqueos Q-04/Q-05/Q-07/Q-10, cerrados para el laboratorio en el registro de
+resolucion de [open-questions.md](../../docs/requirements/open-questions.md): usar
+sus valores y registrar como propuesta lo que no cubran. Registrar como propuesta lo que no este
 aprobado y no inventar ventanas de retencion, estados, limites ni redondeo.
 
 ### Contrato de idempotencia
@@ -167,8 +169,8 @@ aprobado y no inventar ventanas de retencion, estados, limites ni redondeo.
   en curso espera el resultado de la transaccion (UNIQUE) y responde con el
   mismo resultado, sin bloquear sin limite ni crear un segundo intento.
 - Nueva clave = nueva intencion, incluso con igual pagador/monto/destino; no
-  deduplicar por igualdad de datos. La ventana de intento, expiracion y
-  retencion dependen de Q-07: declararlas pendientes y bloquear lo afectado.
+  deduplicar por igualdad de datos. Ventana de replay, expiracion y retencion
+  segun Q-07 (cerrada); lo que no cubra se declara pendiente y se bloquea.
 - La referencia de la operacion es estable y derivada de la intencion, no del
   intento HTTP; un reintento tras timeout o crash la reutiliza.
 

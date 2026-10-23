@@ -1,6 +1,10 @@
 # Backend previsto
 
-Todavia no existe aplicacion ni build Maven. Java 21 y Spring Boot con monolito
+Esqueleto minimo (2026-10-23): [pom.xml](pom.xml) Spring Boot 4.1.2 / Java 21 con las
+dependencias aprobadas y la clase `WalletApplication` con su test de contexto. No hay
+logica de negocio ni build de contenedor de aplicacion. Los checks de producto corren
+en una imagen sin red con esas dependencias precargadas y un PostgreSQL 18 efimero
+(ver Q-16 en [decisiones](../docs/requirements/open-questions.md)). Java 21 y Spring Boot con monolito
 modular, CQRS PostgreSQL/Meilisearch y Clean Architecture. Alcance y secuencia:
 HU-01 onboarding -> HU-02 confirmacion de pago -> HU-04 idempotencia. Ver
 [stack y ADR](../architecture/README.md).
@@ -32,8 +36,9 @@ Ver [ADR-0007](../architecture/adr/0007-cqrs-postgresql-meilisearch.md).
 
 - Fijar version Spring Boot compatible con Java 21 y Maven Wrapper en Q-16.
 - Aprobar limites modulares, contratos, estados e invariantes en OpenSpec.
-- Preparar PostgreSQL/Flyway y pruebas Testcontainers, no H2 como sustituto
-  de las garantias transaccionales a comprobar.
+- Preparar PostgreSQL/Flyway y pruebas contra PostgreSQL real, no H2 como sustituto
+  de las garantias transaccionales a comprobar. En los checks del runner (sin
+  motor de contenedores) se usa el PostgreSQL efimero de la imagen, no Testcontainers.
 - Definir comandos reales de build, test y ArchUnit al generar el proyecto.
 - Incluir imagen multistage Java 21/Maven y runtime en Compose OCI compatible
   con Docker/Podman Desktop; sin Java/Maven host. Ejecutar checks en contenedores.

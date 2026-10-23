@@ -9,6 +9,7 @@ import types
 from unittest.mock import patch
 from pathlib import Path
 
+import yaml
 from pydantic import ValidationError
 
 from wallet_agents.contracts import GeneratedFile, StageOutput
@@ -285,8 +286,9 @@ class RegistryTests(unittest.TestCase):
     def test_draft_profiles_in_the_real_repository_are_rejected(self):
         if not Path("/repository").exists():
             self.skipTest("Repository fixture mount is required")
-        drafts = [path.name for path in Path("/repository/agents/specialists").glob("*.md")
-                  if "status: draft" in path.read_text()]
+        bindings = yaml.safe_load(Path("/repository/agents/config/skill-bindings.yaml").read_text(encoding="utf-8"))
+        drafts = [name for name in bindings["instruction_profiles"].values()
+                  if "status: draft" in Path("/repository", name).read_text(encoding="utf-8")]
         if not drafts:
             self.skipTest("All specialist profiles are reviewed")
         with self.assertRaises(RunnerError):
@@ -332,6 +334,9 @@ class GateFlowTests(unittest.TestCase):
             stories = root / "stories"
             stories.mkdir()
             (stories / "user-onboarding-mvp-completion.sp.md").write_text("HU-01 CA1 CA2 CA3 CA4 CA5 CA6")
+            (root / "backend").mkdir()
+            (root / "backend" / "pom.xml").write_text("<project/>")
+            (root / "backend" / ".gitignore").write_text("target/")
             flow = WalletOrchestrationFlow.__new__(WalletOrchestrationFlow)
             flow.repository = root
             flow.store = ArtifactStore(root / "out", root / "control")
@@ -351,6 +356,9 @@ class GateFlowTests(unittest.TestCase):
             state = flow.start("fixture", stories, None, policy, ["HU-01"])
             self.assertEqual(state["gate"], "G0")
             self.assertEqual(flow.resume("fixture")["calls"], 0)
+            workspace = flow.store.run_root("fixture") / "workspace" / "backend"
+            self.assertTrue((workspace / "pom.xml").exists())
+            self.assertFalse((workspace / ".gitignore").exists())
             from wallet_agents.main import check_request
             with self.assertRaises(RunnerError):
                 check_request(flow, "fixture")
