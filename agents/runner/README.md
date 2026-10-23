@@ -215,8 +215,28 @@ El runner genera candidatos en el volumen del run. El operador ejecuta checks
 configurados por digest mediante [Invoke-WalletFlow.ps1](../../orchestration/Invoke-WalletFlow.ps1).
 El agente no recibe shell, socket, credenciales ni escritura a control. Checks
 usan red deshabilitada por defecto. El runner LLM necesita egress al proveedor y
-Compose no lo filtra: el entorno debe imponer allowlist externa. No se han
-validado imagenes Maven/npm/OpenSpec ni servicios wallet reales.
+Compose no lo filtra: el entorno debe imponer allowlist externa.
+
+### Checks de producto (imagenes locales)
+
+Los checks `openspec`, `backend-tests` y `frontend-tests` de `.wallet-control/policy.json`
+usan imagenes locales fijadas por digest, construidas con red una sola vez y ejecutadas
+sin red. Reconstruirlas tras cambiar `backend/pom.xml` o `frontend/package.json`:
+
+```powershell
+podman build -f agents/runner/openspec-checks.Dockerfile -t localhost/wallet-openspec-checks:1.14.3 agents/runner
+podman build -f agents/runner/checks-backend.Dockerfile -t localhost/wallet-backend-checks:1 backend
+podman build -f agents/runner/checks-frontend.Dockerfile -t localhost/wallet-frontend-checks:1 frontend
+podman image inspect <imagen> --format '{{index .RepoDigests 0}}'   # nuevo digest para policy.json
+```
+
+`backend-tests` levanta un PostgreSQL 18 efimero dentro de la imagen y corre `mvn test`;
+`frontend-tests` corre `ng test` (Vitest/jsdom). No hay motor de contenedores, navegador,
+Meilisearch real ni Compose en los checks: esos escenarios quedan `NO EJECUTADO` y los
+verifica un humano. Los agentes solo pueden usar las dependencias ya presentes en el
+pom y el package.json del esqueleto. Con la maquina Podman de 2 GiB los checks son
+justos; subir la memoria con `podman machine set --memory 4096` si fallan por OOM.
+Compose, la imagen de la aplicacion y el arranque completo siguen sin validarse.
 
 ## Verificacion y limites
 

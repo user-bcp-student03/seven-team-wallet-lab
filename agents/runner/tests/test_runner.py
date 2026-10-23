@@ -9,6 +9,7 @@ import types
 from unittest.mock import patch
 from pathlib import Path
 
+import yaml
 from pydantic import ValidationError
 
 from wallet_agents.contracts import GeneratedFile, StageOutput
@@ -35,6 +36,21 @@ class ContractTests(unittest.TestCase):
             )
         with self.assertRaises(ValidationError):
             GeneratedFile(path="proposal.md", content="draft", approved=True)
+
+    def test_task_paths_accept_directory_scopes_but_not_unsafe_ones(self):
+        from wallet_agents.contracts import PlannedTask
+        base = dict(task_id="1.1", owner="backend_engineer", criteria=["CA1"], scenarios=["S1"], checks=["unit"])
+        self.assertEqual(PlannedTask(**base, paths=["backend/", "backend/pom.xml"]).paths, ["backend/", "backend/pom.xml"])
+        for bad in (["../x/"], ["/"], ["a//b/"]):
+            with self.subTest(path=bad), self.assertRaises(ValidationError):
+                PlannedTask(**base, paths=bad)
+
+    def test_normalizes_criterion_spellings(self):
+        self.assertEqual(StageOutput(summary="x", covered_criteria=["CA1-CA3", "CA5, CA6"]).covered_criteria,
+                         ["CA1", "CA2", "CA3", "CA5", "CA6"])
+        output = StageOutput(summary="x", covered_criteria=["CA-1", "ca2", "3", "HU-01-CA4", "CA1"])
+        self.assertEqual(output.covered_criteria, ["CA1", "CA2", "CA3", "CA4"])
+        self.assertEqual(StageOutput(summary="x", covered_criteria=["CA99x"]).covered_criteria, ["CA99x"])
 
 
 class CopilotProviderTests(unittest.TestCase):
@@ -285,8 +301,9 @@ class RegistryTests(unittest.TestCase):
     def test_draft_profiles_in_the_real_repository_are_rejected(self):
         if not Path("/repository").exists():
             self.skipTest("Repository fixture mount is required")
-        drafts = [path.name for path in Path("/repository/agents/specialists").glob("*.md")
-                  if "status: draft" in path.read_text()]
+        bindings = yaml.safe_load(Path("/repository/agents/config/skill-bindings.yaml").read_text(encoding="utf-8"))
+        drafts = [name for name in bindings["instruction_profiles"].values()
+                  if "status: draft" in Path("/repository", name).read_text(encoding="utf-8")]
         if not drafts:
             self.skipTest("All specialist profiles are reviewed")
         with self.assertRaises(RunnerError):
@@ -309,6 +326,22 @@ class RegistryTests(unittest.TestCase):
 
 
 class GateFlowTests(unittest.TestCase):
+    def test_check_story_follows_the_phase(self):
+        from wallet_agents.contracts import PlannedTask
+        approved = {"openspec": {}, "backend-tests": {}, "frontend-tests": {}}
+        task = PlannedTask(task_id="1.1", owner="frontend_engineer", criteria=["CA1", "CA9"], scenarios=["s"],
+                           paths=["frontend/"], checks=["Frontend_Tests", "docker-compose", "unit"])
+        WalletOrchestrationFlow.normalize_task(task, {f"CA{n}" for n in range(1, 7)}, approved)
+        self.assertEqual((task.criteria, task.checks), (["CA1"], ["frontend-tests"]))
+        task.checks = ["compose"]
+        WalletOrchestrationFlow.normalize_task(task, {"CA1"}, approved)
+        self.assertEqual(task.checks, ["frontend-tests"])
+        sources = {"HU-01": "x", "HU-02": "y"}
+        pick = WalletOrchestrationFlow.check_story
+        self.assertEqual(pick(None, {"check_phase": "definition", "sources": sources, "construction_story": None}), "HU-01")
+        self.assertEqual(pick(None, {"check_phase": "definition", "sources": sources, "prechecked": ["HU-01"], "construction_story": None}), "HU-02")
+        self.assertEqual(pick(None, {"check_phase": "construction", "sources": sources, "construction_story": "HU-02"}), "HU-02")
+
     def test_stories_are_discovered_from_the_input_folder(self):
         from wallet_agents.flow import discover_stories
         with tempfile.TemporaryDirectory() as directory:
@@ -332,6 +365,9 @@ class GateFlowTests(unittest.TestCase):
             stories = root / "stories"
             stories.mkdir()
             (stories / "user-onboarding-mvp-completion.sp.md").write_text("HU-01 CA1 CA2 CA3 CA4 CA5 CA6")
+            (root / "backend").mkdir()
+            (root / "backend" / "pom.xml").write_text("<project/>")
+            (root / "backend" / ".gitignore").write_text("target/")
             flow = WalletOrchestrationFlow.__new__(WalletOrchestrationFlow)
             flow.repository = root
             flow.store = ArtifactStore(root / "out", root / "control")
@@ -351,6 +387,9 @@ class GateFlowTests(unittest.TestCase):
             state = flow.start("fixture", stories, None, policy, ["HU-01"])
             self.assertEqual(state["gate"], "G0")
             self.assertEqual(flow.resume("fixture")["calls"], 0)
+            workspace = flow.store.run_root("fixture") / "workspace" / "backend"
+            self.assertTrue((workspace / "pom.xml").exists())
+            self.assertFalse((workspace / ".gitignore").exists())
             from wallet_agents.main import check_request
             with self.assertRaises(RunnerError):
                 check_request(flow, "fixture")

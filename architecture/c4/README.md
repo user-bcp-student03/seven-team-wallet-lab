@@ -94,7 +94,7 @@ consume eventos durables via worker; no condiciona el commit financiero.
 El filtro de idempotencia es un componente del mismo backend (sin microservicio
 ni broker); persiste claves en PostgreSQL, nunca en
 Meilisearch ni memoria. El pago, la clave y el outbox se confirman en una sola
-transaccion. Retencion y plazos siguen pendientes de Q-07.
+transaccion. Ventana de replay y retencion segun la decision de laboratorio Q-07.
 
 ## Vistas complementarias
 

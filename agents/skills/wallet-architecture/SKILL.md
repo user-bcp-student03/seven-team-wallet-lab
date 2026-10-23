@@ -108,7 +108,8 @@ Por cada operacion documentar:
 - Describir clave de idempotencia, fingerprint, alcance, retencion y respuesta
   de replay/conflicto solo segun decisiones aprobadas. Explicar como duplicados
   y concurrencia evitan una segunda transaccion y conservan el resultado original.
-  Si Q-07 sigue abierta, bloquear las partes afectadas del contrato.
+  Usar la decision cerrada de Q-07 del registro de resolucion; si una parte no
+  esta cubierta por ella, bloquear solo esa parte del contrato.
 - Distinguir aceptacion de procesamiento de exito financiero. Un timeout del
   cliente no demuestra fracaso: el cliente reintenta con la misma clave o consulta
   de forma autoritativa por referencia, sin inventar estados Q-05.

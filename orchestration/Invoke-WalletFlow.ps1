@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('Init','Start','Status','Approve','Resume','Revise','Revoke','Recover','Checks','Export')][string]$Action,
+    [Parameter(Mandatory)][ValidateSet('Init','Start','Status','Approve','Resume','Revise','Revoke','Recover','Checks','Export','Auto')][string]$Action,
     [string]$RunId = 'wallet-001',
     [string]$Revision,
     [string]$Reviewer,
@@ -180,6 +180,29 @@ switch ($Action) {
         Invoke-WalletRun
     }
     'Resume' { Invoke-WalletRun }
+    'Auto' {
+        # Operator-delegated mode: signs every human gate itself, so use it only for lab runs.
+        if (-not $Reviewer) { throw 'Auto requiere Reviewer' }
+        if (-not (Test-Path (Join-Path $output "$RunId/run.json"))) {
+            if (-not $Stories) { throw 'La corrida no existe: indique Stories para iniciarla' }
+            $chosen = @($Stories -split ',' | ForEach-Object { $_.Trim().ToUpperInvariant() } | Where-Object { $_ })
+            $arguments = @('start','--run-id',$RunId,'--select',($chosen -join ','))
+            if ($Rules) { $arguments += @('--rules',$Rules) }
+            Invoke-WalletCommand 'runner' $arguments
+        }
+        $approvals = 0
+        while ($true) {
+            $state = Invoke-WalletJson 'operator' @('status','--run-id',$RunId)
+            if ($state.status -eq 'completed') { Write-Host "Corrida completada tras $approvals aprobaciones."; break }
+            if ($state.status -ne 'awaiting_human') { throw "Estado inesperado: $($state.status); use Resume o Recover" }
+            if ($approvals -ge 40) { throw 'Limite de aprobaciones automaticas alcanzado' }
+            if ($state.advisory_findings) { Write-Warning "Hallazgos no bloqueantes en $($state.gate): $($state.advisory_findings -join '; ')" }
+            Write-Host "Aprobando $($state.gate) como auto:$Reviewer"
+            Invoke-WalletCommand 'operator' @('approve','--run-id',$RunId,'--revision',$state.revision,'--reviewer',"auto:$Reviewer")
+            $approvals++
+            Invoke-WalletRun
+        }
+    }
     'Revise' {
         if (-not $Story -or -not $FeedbackFile) { throw 'Revise requiere Story y FeedbackFile dentro de .wallet-inputs' }
         $inputRoot = (Resolve-Path (Join-Path $repository '.wallet-inputs')).Path

@@ -1,10 +1,10 @@
 # Frontend previsto
 
-Todavia no hay aplicacion Angular del producto. Existen solo dos prototipos con datos
-ficticios y sin backend: la [maqueta de pago HU-02/HU-04](prototype-hu02/README.md) y la
-[maqueta de onboarding, login y pagos](prototype-wallet-mvp/README.md); no sustituyen el
-diseno aprobado. Se preve Angular/TypeScript
-strict, web responsive para el pagador. Secuencia activa: HU-01 -> HU-02 -> HU-04.
+Esqueleto minimo (2026-10-23): Angular 21.2.x con Vitest ([package.json](package.json),
+`angular.json` y un componente raiz con su test). Los checks corren en una imagen sin
+red con las dependencias precargadas (ver Q-16 en
+[decisiones](../docs/requirements/open-questions.md)); sin lockfile, navegador ni E2E.
+Se preve Angular/TypeScript strict, web responsive para el pagador. Secuencia activa: HU-01 -> HU-02 -> HU-04.
 Comercio, soporte/disputas y conciliacion operativa quedan diferidos. No se
 requiere app nativa en esta fase. Build Node/Angular y servidor web se ejecutaran
 en contenedores OCI/Compose compatibles con Docker y Podman Desktop, sin Node host.

@@ -41,6 +41,32 @@ REQUIRED = {
 }
 DOC_ROOTS = {"proposal.md", "design.md", "tasks.md", "specs", "architecture", "api", "security", "testing", "product", "reviews"}
 PRODUCT_ROOTS = {"backend", "frontend", "orchestration"}
+SPEC_FORMAT = (
+    "OPENSPEC SPEC FORMAT (validated with 'openspec validate --strict'): every specs/<capability>/spec.md must contain ONLY "
+    "delta sections. Use '## ADDED Requirements' (or MODIFIED/REMOVED/RENAMED). Each requirement is "
+    "'### Requirement: <name>' followed by a sentence containing SHALL or MUST, then at least one "
+    "'#### Scenario: <name>' block with '- **WHEN** ...' and '- **THEN** ...' bullets. Do NOT add other '##' sections "
+    "(no 'Alcance', 'Trazabilidad', 'Requisitos', 'Restricciones'); put traceability, decisions and scope notes in "
+    "proposal.md, design.md or product/traceability.md, and cite CA1..CAn inside requirement or scenario text."
+)
+PLAN_FORMAT = (
+    "tasks.md FORMAT: every structured task must appear as its own unchecked line exactly like "
+    "'- [ ] 1.1 <description>' (same task_id as in tasks[], never checked, no bold or prefixes before the id). "
+    "In tasks[], 'criteria' lists each ID separately ('CA1', 'CA2'; never ranges) and 'checks' may only use the exact "
+    "IDs in allowed_checks."
+)
+DELEGATION = (
+    "HUMAN AUTHORIZATION (lab case study, fictitious money): you MUST decide anything still open or unspecified "
+    "(open questions, mensajes, eventos, formulas, retencion, verificacion simulada) with reasonable minimal values. "
+    "Record each as 'Decision delegada (caso de estudio)' with the chosen value and one-line rationale, and keep it "
+    "consistent in later artifacts. Existing human decisions take priority. These decisions are lab-only and make no "
+    "regulatory claim. Do NOT list open questions, missing product definitions, or absent executed evidence as "
+    "blockers (executed evidence is produced later by external checks). Use blockers only for things that would need "
+    "real data, real providers, real spend, or scope from another HU. REVIEWERS: a delegated decision, an open question "
+    "answered by a delegated decision, or the absence of executed evidence at definition time is NOT a reason for "
+    "changes_required; verify only that decisions are recorded, consistent, traceable and testable, and return "
+    "changes_required solely for concrete defects (contradictions, missing traceability, unsafe design)."
+)
 DESTINATIONS = {
     "refine_requirements": ["proposal.md", "specs/*/spec.md", "product/traceability.md"],
     "design_architecture": ["design.md", "architecture/c4.md", "architecture/adr/*.md", "api/openapi.yaml"],
@@ -127,9 +153,9 @@ class WalletOrchestrationFlow:
                     for path in source.rglob("*"):
                         if path.is_file():
                             relative = path.relative_to(self.repository).as_posix()
-                            checked = confined(self.repository, relative)
                             if any(part.startswith(".") for part in path.relative_to(source).parts):
                                 continue
+                            checked = confined(self.repository, relative)
                             if checked.stat().st_size > 500_000:
                                 raise RunnerError("Baseline contains an oversized file")
                             destination = confined(root, "workspace/" + relative)
@@ -162,10 +188,19 @@ class WalletOrchestrationFlow:
             "calls": state["calls"], "corrections": state["corrections"],
             "accepted": state["accepted"], "inflight": state["inflight"],
             "blockers": self.blockers(state), "authorizations": state["history"],
+            "advisory_findings": self.advisory_findings(state),
         }
 
+    def advisory_findings(self, state: dict) -> list[str]:
+        """Review verdicts that do not pass but no longer stop the run (advisory_reviews policy)."""
+        if not state["policy"].get("advisory_reviews") or state["gate"] in {"G0", "DONE"}:
+            return []
+        outputs = state["outputs"].get(state["gate"].split("-", 1)[1], {})
+        names = ["review_security_design", "plan_implementation", "review_product_scope", *REVIEWERS]
+        return [f"{name}: {outputs[name]['verdict']}" for name in names if name in outputs and outputs[name]["verdict"] != "pass"]
+
     def blockers(self, state: dict) -> list[str]:
-        if state["gate"] in {"G0", "DONE"}:
+        if state["gate"] in {"G0", "DONE"} or state["policy"].get("delegate_open_questions"):
             return []
         story_id = state["gate"].split("-", 1)[1]
         return [text for output in state["outputs"].get(story_id, {}).values() for text in output["blockers"]]
@@ -183,12 +218,13 @@ class WalletOrchestrationFlow:
                 raise RunnerError("Review the exact current gate revision before approval")
             if self.blockers(state):
                 raise RunnerError("Resolve blockers through revise before approving")
-            if state["gate"].startswith("G2-"):
+            advisory = state["policy"].get("advisory_reviews")
+            if state["gate"].startswith("G2-") and not advisory:
                 outputs = state["outputs"][state["gate"].split("-", 1)[1]]
                 reviewers = ("review_security_design", "plan_implementation", "review_product_scope")
                 if any(outputs[key]["verdict"] != "pass" for key in reviewers):
                     raise RunnerError("Security, task and product-scope reviews must pass before G2")
-            if state["gate"].startswith("G3-"):
+            if state["gate"].startswith("G3-") and not advisory:
                 outputs = state["outputs"][state["gate"].split("-", 1)[1]]
                 if any(outputs[key]["verdict"] != "pass" for key in REVIEWERS):
                     raise RunnerError("All independent reviews must pass")
@@ -301,7 +337,7 @@ class WalletOrchestrationFlow:
             for task_key in REVIEWERS:
                 if task_key not in outputs:
                     return story_id, "construction", task_key
-                if outputs[task_key]["verdict"] != "pass" or outputs[task_key]["blockers"]:
+                if (outputs[task_key]["verdict"] != "pass" or outputs[task_key]["blockers"]) and not state["policy"].get("advisory_reviews"):
                     self.correct_construction(state, story_id, {"reviewer": task_key, "findings": outputs[task_key]})
                     return self.next_job(state)
             state.update(gate=f"G3-{story_id}", status="awaiting_human")
@@ -333,13 +369,31 @@ class WalletOrchestrationFlow:
             "allowed_product_paths": paths, "allowed_checks": list(state["policy"]["checks"]),
             "workspace": workspace, "executed_evidence": self.evidence(state, story_id),
             "remaining_seconds": max(1, int(state["policy"]["max_seconds"] - (time.time() - state["created"]))),
-            "instruction": "Work only on current_story_only. Return full file content, not shell commands. Reviewers must output pass or changes_required and never change product files.",
+            "instruction": "Work only on current_story_only. Return full file content, not shell commands. Reviewers must output pass or changes_required and never change product files."
+            + (" " + DELEGATION if state["policy"].get("delegate_open_questions") else "")
+            + (" " + PLAN_FORMAT if task_key == "plan_delivery" else "")
+            + (" " + SPEC_FORMAT if task_key == "refine_requirements" else ""),
         }
 
     def allowed_paths(self, state: dict, story_id: str, task_key: str) -> list[str]:
         tasks = state["outputs"][story_id]["plan_delivery"]["tasks"]
         owner = self.registry.tasks["construction"][task_key]["agent"]
         return [path for task in tasks if task_key == "integrate_initiative" or task["owner"] == owner for path in task["paths"]]
+
+    @staticmethod
+    def normalize_task(task, criteria: set[str], approved: dict) -> None:
+        """Keeps only real criteria and approved check IDs; maps near-miss check names and falls back to the owner's check."""
+        task.criteria = [criterion for criterion in task.criteria if criterion in criteria]
+        kept = []
+        for name in task.checks:
+            key = re.sub(r"[\s_]+", "-", name.strip().lower())
+            if key not in approved:
+                key = next((check for check, word in (("backend-tests", "backend"), ("frontend-tests", "frontend"), ("openspec", "openspec"))
+                            if check in approved and word in key), key)
+            if key in approved and key not in kept:
+                kept.append(key)
+        default = {"backend_engineer": "backend-tests", "frontend_engineer": "frontend-tests"}.get(task.owner, "openspec")
+        task.checks = kept or ([default] if default in approved else [])
 
     def validate_output(self, state: dict, story_id: str, phase: str, task_key: str, output: StageOutput):
         criteria = {f"CA{number}" for number in range(1, STORIES[story_id][2] + 1)}
@@ -353,7 +407,8 @@ class WalletOrchestrationFlow:
                 raise RunnerError(f"Required artifact missing: {pattern}")
         for entry in output.files:
             if task_key in AUTHORS:
-                if entry.path not in self.allowed_paths(state, story_id, task_key):
+                if not any(entry.path == allowed or (allowed.endswith("/") and entry.path.startswith(allowed))
+                           for allowed in self.allowed_paths(state, story_id, task_key)):
                     raise RunnerError("Construction output is outside approved task paths")
             elif not any(Path(entry.path).match(pattern) for pattern in DESTINATIONS.get(task_key, ["reviews/*.md"])):
                 raise RunnerError("Artifact outside the permitted change destinations")
@@ -362,16 +417,24 @@ class WalletOrchestrationFlow:
         if task_key == "plan_delivery":
             if not output.tasks or len({task.task_id for task in output.tasks}) != len(output.tasks):
                 raise RunnerError("Unique structured OpenSpec tasks are required")
+            for task in output.tasks:
+                self.normalize_task(task, criteria, state["policy"]["checks"])
             if {criterion for task in output.tasks for criterion in task.criteria} != criteria:
                 raise RunnerError("Implementation tasks must cover every original criterion")
             tasks_text = next(entry.content for entry in output.files if entry.path == "tasks.md")
             for task in output.tasks:
-                if not set(task.criteria).issubset(criteria) or not set(task.checks).issubset(state["policy"]["checks"]):
+                if not task.criteria or not task.checks:
                     raise RunnerError("Task references unknown criteria or checks")
-                if not re.search(r"- \[ \] " + re.escape(task.task_id) + r"\s", tasks_text):
+                if not re.search(r"^\s*[-*+]\s+\[ \]\s*[^\n\d]{0,20}?" + re.escape(task.task_id) + r"(?!\d|\.\d)", tasks_text, re.M):
                     raise RunnerError("Structured task has no corresponding OpenSpec checkbox")
                 if any(path.split("/")[0] not in PRODUCT_ROOTS for path in task.paths):
                     raise RunnerError("Product path outside backend/frontend/orchestration")
+
+    def check_story(self, state: dict) -> str:
+        """Story whose checks are pending: the first one without its definition check, or the one under construction."""
+        if state.get("check_phase") == "definition":
+            return next(story for story in state["sources"] if story not in state.get("prechecked", []))
+        return state["construction_story"]
 
     def check_ids(self, state: dict, story_id: str) -> set[str]:
         selected = set(state["accepted"]) | {story_id}

@@ -1,6 +1,7 @@
 """Traceability contracts and validated runtime outputs."""
 
 from dataclasses import dataclass
+import re
 from decimal import Decimal
 from typing import Literal
 
@@ -161,10 +162,33 @@ class GeneratedFile(RuntimeModel):
     _path = field_validator("path")(safe_relative)
 
 
+def normalize_criteria(values):
+    """Map spellings such as 'CA-1', 'ca 1', '1', 'HU-01-CA1' or 'CA1-CA3' to canonical 'CA<n>' IDs."""
+    if not isinstance(values, list):
+        return values
+    result = []
+    for value in values:
+        if not isinstance(value, str):
+            result.append(value)
+            continue
+        text = re.sub(r"HU-?\d+", " ", value, flags=re.I)
+        span = re.fullmatch(r"\s*(?:CA|AC)?[\s_.-]*(\d+)\s*(?:-|–|a|to|hasta)\s*(?:CA|AC)?[\s_.-]*(\d+)\s*", text, re.I)
+        if span and int(span[1]) <= int(span[2]) <= 50:
+            result.extend(f"CA{number}" for number in range(int(span[1]), int(span[2]) + 1))
+            continue
+        parts = [part for part in re.split(r"[,;/\s]+", text) if part] or [value]
+        for part in parts:
+            match = re.fullmatch(r"[\s_.:-]*(?:CA|AC)?[\s_.-]*(\d+)", part, re.I)
+            result.append(f"CA{int(match.group(1))}" if match else (value if len(parts) == 1 else part))
+    return list(dict.fromkeys(result))
+
+
 class PlannedTask(RuntimeModel):
     task_id: str = Field(pattern=r"^[0-9]+\.[0-9]+$")
     owner: Literal["backend_engineer", "frontend_engineer", "platform_engineer"]
-    criteria: list[str] = Field(min_length=1)
+    criteria: list[str] = Field(min_length=1, description="Criterion IDs exactly as CA1, CA2, ...")
+
+    _criteria = field_validator("criteria", mode="before")(normalize_criteria)
     scenarios: list[str] = Field(min_length=1)
     paths: list[str] = Field(min_length=1)
     checks: list[str] = Field(min_length=1)
@@ -172,16 +196,19 @@ class PlannedTask(RuntimeModel):
     @field_validator("paths")
     @classmethod
     def validate_paths(cls, values: list[str]) -> list[str]:
-        return [safe_relative(value) for value in values]
+        # A trailing slash scopes the task to a directory; everything else is an exact file.
+        return [safe_relative(value[:-1]) + "/" if value.endswith("/") else safe_relative(value) for value in values]
 
 
 class StageOutput(RuntimeModel):
     summary: str = Field(min_length=1, max_length=20_000)
     files: list[GeneratedFile] = Field(default_factory=list, max_length=100)
-    covered_criteria: list[str] = Field(min_length=1)
+    covered_criteria: list[str] = Field(min_length=1, description="Criterion IDs exactly as CA1, CA2, ...")
     blockers: list[str] = Field(default_factory=list)
     tasks: list[PlannedTask] = Field(default_factory=list)
     verdict: Literal["draft", "pass", "changes_required"] = "draft"
+
+    _covered = field_validator("covered_criteria", mode="before")(normalize_criteria)
 
     @field_validator("files")
     @classmethod
@@ -196,6 +223,8 @@ class RuntimePolicy(RuntimeModel):
     model: str = Field(min_length=1)
     base_url: str | None = None
     copilot_personal_use_approved: bool = False
+    delegate_open_questions: bool = False
+    advisory_reviews: bool = False
     max_calls: int = Field(gt=0, le=500)
     max_output_tokens: int = Field(gt=0, le=32_000)
     max_context_bytes: int = Field(gt=0, le=2_000_000)
