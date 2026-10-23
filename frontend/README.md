@@ -4,8 +4,7 @@ Esqueleto minimo (2026-10-23): Angular 21.2.x con Vitest ([package.json](package
 `angular.json` y un componente raiz con su test). Los checks corren en una imagen sin
 red con las dependencias precargadas (ver Q-16 en
 [decisiones](../docs/requirements/open-questions.md)); sin lockfile, navegador ni E2E.
-Se preve Angular/TypeScript
-strict, web responsive para el pagador. Secuencia activa: HU-01 -> HU-02 -> HU-04.
+Se preve Angular/TypeScript strict, web responsive para el pagador. Secuencia activa: HU-01 -> HU-02 -> HU-04.
 Comercio, soporte/disputas y conciliacion operativa quedan diferidos. No se
 requiere app nativa en esta fase. Build Node/Angular y servidor web se ejecutaran
 en contenedores OCI/Compose compatibles con Docker y Podman Desktop, sin Node host.

@@ -1,0 +1,13 @@
+services:
+  wallet-mvp:
+    build: .
+    image: seven-team/wallet-mock-mvp:local
+    ports:
+      - "127.0.0.1:4300:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
