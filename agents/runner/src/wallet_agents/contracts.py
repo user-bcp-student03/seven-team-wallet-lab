@@ -163,13 +163,23 @@ class GeneratedFile(RuntimeModel):
 
 
 def normalize_criteria(values):
-    """Map spellings such as 'CA-1', 'ca 1', '1' or 'HU-01-CA1' to the canonical 'CA1'."""
+    """Map spellings such as 'CA-1', 'ca 1', '1', 'HU-01-CA1' or 'CA1-CA3' to canonical 'CA<n>' IDs."""
     if not isinstance(values, list):
         return values
     result = []
     for value in values:
-        match = re.fullmatch(r"(?:HU-?\d+[\s_:/.-]*)?(?:CA|AC)?[\s_.-]*(\d+)", value.strip(), re.I) if isinstance(value, str) else None
-        result.append(f"CA{int(match.group(1))}" if match else value)
+        if not isinstance(value, str):
+            result.append(value)
+            continue
+        text = re.sub(r"HU-?\d+", " ", value, flags=re.I)
+        span = re.fullmatch(r"\s*(?:CA|AC)?[\s_.-]*(\d+)\s*(?:-|–|a|to|hasta)\s*(?:CA|AC)?[\s_.-]*(\d+)\s*", text, re.I)
+        if span and int(span[1]) <= int(span[2]) <= 50:
+            result.extend(f"CA{number}" for number in range(int(span[1]), int(span[2]) + 1))
+            continue
+        parts = [part for part in re.split(r"[,;/\s]+", text) if part] or [value]
+        for part in parts:
+            match = re.fullmatch(r"[\s_.:-]*(?:CA|AC)?[\s_.-]*(\d+)", part, re.I)
+            result.append(f"CA{int(match.group(1))}" if match else (value if len(parts) == 1 else part))
     return list(dict.fromkeys(result))
 
 
@@ -186,7 +196,8 @@ class PlannedTask(RuntimeModel):
     @field_validator("paths")
     @classmethod
     def validate_paths(cls, values: list[str]) -> list[str]:
-        return [safe_relative(value) for value in values]
+        # A trailing slash scopes the task to a directory; everything else is an exact file.
+        return [safe_relative(value[:-1]) + "/" if value.endswith("/") else safe_relative(value) for value in values]
 
 
 class StageOutput(RuntimeModel):
@@ -212,6 +223,8 @@ class RuntimePolicy(RuntimeModel):
     model: str = Field(min_length=1)
     base_url: str | None = None
     copilot_personal_use_approved: bool = False
+    delegate_open_questions: bool = False
+    advisory_reviews: bool = False
     max_calls: int = Field(gt=0, le=500)
     max_output_tokens: int = Field(gt=0, le=32_000)
     max_context_bytes: int = Field(gt=0, le=2_000_000)

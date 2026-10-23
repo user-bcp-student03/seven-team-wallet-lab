@@ -37,7 +37,17 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             GeneratedFile(path="proposal.md", content="draft", approved=True)
 
+    def test_task_paths_accept_directory_scopes_but_not_unsafe_ones(self):
+        from wallet_agents.contracts import PlannedTask
+        base = dict(task_id="1.1", owner="backend_engineer", criteria=["CA1"], scenarios=["S1"], checks=["unit"])
+        self.assertEqual(PlannedTask(**base, paths=["backend/", "backend/pom.xml"]).paths, ["backend/", "backend/pom.xml"])
+        for bad in (["../x/"], ["/"], ["a//b/"]):
+            with self.subTest(path=bad), self.assertRaises(ValidationError):
+                PlannedTask(**base, paths=bad)
+
     def test_normalizes_criterion_spellings(self):
+        self.assertEqual(StageOutput(summary="x", covered_criteria=["CA1-CA3", "CA5, CA6"]).covered_criteria,
+                         ["CA1", "CA2", "CA3", "CA5", "CA6"])
         output = StageOutput(summary="x", covered_criteria=["CA-1", "ca2", "3", "HU-01-CA4", "CA1"])
         self.assertEqual(output.covered_criteria, ["CA1", "CA2", "CA3", "CA4"])
         self.assertEqual(StageOutput(summary="x", covered_criteria=["CA99x"]).covered_criteria, ["CA99x"])
@@ -316,6 +326,22 @@ class RegistryTests(unittest.TestCase):
 
 
 class GateFlowTests(unittest.TestCase):
+    def test_check_story_follows_the_phase(self):
+        from wallet_agents.contracts import PlannedTask
+        approved = {"openspec": {}, "backend-tests": {}, "frontend-tests": {}}
+        task = PlannedTask(task_id="1.1", owner="frontend_engineer", criteria=["CA1", "CA9"], scenarios=["s"],
+                           paths=["frontend/"], checks=["Frontend_Tests", "docker-compose", "unit"])
+        WalletOrchestrationFlow.normalize_task(task, {f"CA{n}" for n in range(1, 7)}, approved)
+        self.assertEqual((task.criteria, task.checks), (["CA1"], ["frontend-tests"]))
+        task.checks = ["compose"]
+        WalletOrchestrationFlow.normalize_task(task, {"CA1"}, approved)
+        self.assertEqual(task.checks, ["frontend-tests"])
+        sources = {"HU-01": "x", "HU-02": "y"}
+        pick = WalletOrchestrationFlow.check_story
+        self.assertEqual(pick(None, {"check_phase": "definition", "sources": sources, "construction_story": None}), "HU-01")
+        self.assertEqual(pick(None, {"check_phase": "definition", "sources": sources, "prechecked": ["HU-01"], "construction_story": None}), "HU-02")
+        self.assertEqual(pick(None, {"check_phase": "construction", "sources": sources, "construction_story": "HU-02"}), "HU-02")
+
     def test_stories_are_discovered_from_the_input_folder(self):
         from wallet_agents.flow import discover_stories
         with tempfile.TemporaryDirectory() as directory:

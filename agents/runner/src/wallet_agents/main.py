@@ -63,7 +63,7 @@ def check_request(flow: WalletOrchestrationFlow, run_id: str) -> dict:
     authorize_effects(flow, state)
     if state["status"] != "awaiting_checks":
         raise RunnerError("No external checks are currently authorized")
-    flow.prepare_checks(state, state["construction_story"], definition_only=state.get("check_phase") == "definition")
+    flow.prepare_checks(state, flow.check_story(state), definition_only=state.get("check_phase") == "definition")
     return json.loads(confined(flow.store.run_root(run_id), "check-request.json").read_text())
 
 

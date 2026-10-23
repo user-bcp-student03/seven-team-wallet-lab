@@ -1,0 +1,446 @@
+openapi: 3.1.0
+info:
+  title: Wallet Onboarding API
+  version: 0.1.0
+  summary: Borrador de contrato REST para HU-01
+  description: >-
+    Contrato propuesto para onboarding y sesión del laboratorio. No aprobado ni
+    implementado. Solo datos sintéticos. La respuesta de alta debe revisarse
+    antes de construir para resolver la tensión documentada entre CA3/DNI
+    duplicado y la prevención de enumeración por celular/correo.
+servers:
+  - url: https://wallet.example.test
+    description: URL sintética; despliegue OCI objetivo no verificado.
+tags:
+  - name: Onboarding
+  - name: Session
+paths:
+  /api/v1/csrf:
+    get:
+      operationId: getCsrfToken
+      tags: [Session]
+      summary: Obtener token CSRF
+      description: >-
+        Adaptador Spring Security entrega un token para incluir en
+        X-CSRF-TOKEN en solicitudes mutables. No autentica ni crea una sesión
+        financiera. Precondición: ninguna. Componente C3: Spring Security Adapter.
+      security: []
+      responses:
+        '200':
+          description: Token CSRF emitido para proteger solicitudes mutables.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+              examples:
+                token:
+                  value:
+                    token: csrf-synthetic-token
+                    headerName: X-CSRF-TOKEN
+          x-trace:
+            hu: HU-01
+            criteria: [CA2, CA3]
+            scenario: Preparar alta/login protegidos contra CSRF.
+            component: Spring Security Adapter
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/onboarding/registrations:
+    post:
+      operationId: registerCustomer
+      tags: [Onboarding]
+      summary: Registrar y activar una wallet
+      description: >-
+        Recibe DNI, celular, correo y contraseña; no acepta ownerId/userId del
+        cliente. Valida formato en servidor, unicidad con restricciones SQL y
+        registra usuario/wallet/eventos en una transacción local. En éxito crea
+        sesión de servidor y el cliente navega a Home. DNI duplicado conserva el
+        mensaje de la fuente. Antes de construir, resolver la filtración
+        observable potencial entre alta exitosa y colisión de celular/correo:
+        GR-07 y design.md. No hay endpoint de precomprobación de existencia.
+        Componente C3: RegisterCustomer + adaptador PostgreSQL/sesión.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+            examples:
+              synthetic:
+                value:
+                  documentType: DNI
+                  documentNumber: '12345678'
+                  mobileNumber: '987654321'
+                  email: user@example.test
+                  password: Pass1234
+      responses:
+        '201':
+          description: >-
+            Usuario y wallet activados; sesión de servidor creada. Mensaje
+            requerido por la regla de negocio; Home del Wallet. No implica que
+            pagos estén habilitados: dependen de HU-02 y HU-04.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationSuccess'
+              examples:
+                created:
+                  value:
+                    message: El cliente fue creado con exito
+                    status: ACTIVE
+                    next: /home
+          x-trace:
+            hu: HU-01
+            criteria: [CA2, CA3, CA4]
+            scenario: T-HU01-04; alta válida, activación y Home.
+            component: RegisterCustomer / Angular Home
+        '400':
+          $ref: '#/components/responses/MalformedRequest'
+        '409':
+          description: DNI ya registrado; no se crea identidad ni sesión.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                duplicateDocument:
+                  value:
+                    type: https://wallet.example.test/problems/customer-exists
+                    title: Cliente ya registrado
+                    status: 409
+                    detail: El cliente ya existe
+                    instance: /api/v1/onboarding/registrations
+                    code: CUSTOMER_ALREADY_EXISTS
+          x-trace:
+            hu: HU-01
+            criteria: [CA2]
+            scenario: T-HU01-03; DNI duplicado.
+            component: RegisterCustomer
+        '422':
+          description: >-
+            Validación semántica o colisión de celular/correo. Para celular y
+            correo se usa el mismo mensaje genérico y forma de respuesta tanto
+            si hay colisión como si los datos no cumplen otras reglas; no se
+            devuelve el campo que colisionó. El status/camino de alta frente a
+            una cuenta nueva aún puede ser observable; resolver GR-07 antes de
+            construir. No usar este borrador para afirmar protección completa
+            contra enumeración.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                registrationNotCompleted:
+                  value:
+                    type: https://wallet.example.test/problems/registration-not-completed
+                    title: No se pudo completar el registro
+                    status: 422
+                    detail: Revisa los datos e intenta nuevamente.
+                    instance: /api/v1/onboarding/registrations
+                    code: REGISTRATION_NOT_COMPLETED
+          x-trace:
+            hu: HU-01
+            criteria: [CA2]
+            scenario: T-HU01-02/T-HU01-03; entrada semánticamente inválida o colisión no-DNI.
+            component: RegisterCustomer
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/sessions:
+    post:
+      operationId: createSession
+      tags: [Session]
+      summary: Iniciar sesión
+      description: >-
+        Login incluido por las reglas de negocio de identidad. La identidad se
+        obtiene de las credenciales validadas; no se acepta userId del cuerpo.
+        Sesión de servidor, expiración por inactividad de 30 minutos y bloqueo
+        de 15 minutos tras 5 intentos fallidos (Q-11 registrada). Fallo siempre
+        presenta «Datos incorrectos». Componente C3: AuthenticateCustomer y
+        Spring Security Adapter.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              synthetic:
+                value:
+                  documentType: DNI
+                  documentNumber: '12345678'
+                  password: Pass1234
+      responses:
+        '200':
+          description: Credenciales válidas; sesión autenticada emitida.
+          headers:
+            Set-Cookie:
+              $ref: '#/components/headers/SessionCookie'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginSuccess'
+              examples:
+                loggedIn:
+                  value:
+                    message: Sesion iniciada con exito
+                    next: /home
+          x-trace:
+            hu: HU-01
+            criteria: [CA3]
+            scenario: Reglas de login; acceso a Home tras autenticación.
+            component: AuthenticateCustomer / Angular Home
+        '400':
+          $ref: '#/components/responses/MalformedRequest'
+        '401':
+          description: Credenciales inválidas o cuenta temporalmente bloqueada; respuesta uniforme.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                invalidCredentials:
+                  value:
+                    type: https://wallet.example.test/problems/invalid-credentials
+                    title: No se pudo iniciar sesión
+                    status: 401
+                    detail: Datos incorrectos
+                    instance: /api/v1/sessions
+                    code: INVALID_CREDENTIALS
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    serverSession:
+      type: apiKey
+      in: cookie
+      name: WALLET_SESSION
+      description: >-
+        Cookie de sesión HttpOnly/Secure; no se devuelve token bearer ni se
+        persiste credencial en almacenamiento del navegador. CSRF requerido en
+        operaciones mutables. Ninguna operación de pago forma parte de HU-01.
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-TOKEN
+      in: header
+      required: true
+      description: Token obtenido desde GET /api/v1/csrf; mantener en memoria de cliente.
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 256
+      example: csrf-synthetic-token
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Componente reutilizable para futuras operaciones que muevan/reserven
+        fondos en HU-02/HU-04, no aplicado a registro ni login. UUID según Q-07;
+        ámbito pagador autenticado + clave. Replay/conflicto/ventana se definen
+        en design.md. No implica que una operación de pago esté incluida aquí.
+      schema:
+        type: string
+        format: uuid
+      example: 550e8400-e29b-41d4-a716-446655440000
+  headers:
+    SessionCookie:
+      description: Cookie de sesión de servidor; atributos Secure/HttpOnly/SameSite configurados en adaptador.
+      schema:
+        type: string
+  schemas:
+    CsrfToken:
+      type: object
+      additionalProperties: false
+      required: [token, headerName]
+      properties:
+        token:
+          type: string
+          minLength: 16
+          maxLength: 256
+        headerName:
+          type: string
+          const: X-CSRF-TOKEN
+    RegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [documentType, documentNumber, mobileNumber, email, password]
+      properties:
+        documentType:
+          type: string
+          const: DNI
+        documentNumber:
+          type: string
+          pattern: '^[0-9]{8}$'
+          description: Ocho dígitos; conservar como string para no perder ceros iniciales.
+          example: '12345678'
+        mobileNumber:
+          type: string
+          pattern: '^[0-9]{9}$'
+          description: Nueve dígitos del 0 al 9.
+          example: '987654321'
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Correo con dominio válido; normalización y validación reforzada en servidor.
+          example: user@example.test
+        password:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: '^(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9]{8,20}$'
+          writeOnly: true
+          description: Alfanumérica; no registrar ni devolver. Restricción de laboratorio Q-11.
+          example: Pass1234
+    RegistrationSuccess:
+      type: object
+      additionalProperties: false
+      required: [message, status, next]
+      properties:
+        message:
+          type: string
+          const: El cliente fue creado con exito
+        status:
+          type: string
+          const: ACTIVE
+          description: Estado de onboarding/wallet; no equivale a habilitar pagos antes de HU-02/HU-04.
+        next:
+          type: string
+          const: /home
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [documentType, documentNumber, password]
+      properties:
+        documentType:
+          type: string
+          const: DNI
+        documentNumber:
+          type: string
+          pattern: '^[0-9]{8}$'
+          example: '12345678'
+        password:
+          type: string
+          minLength: 8
+          maxLength: 20
+          writeOnly: true
+          description: Se valida contra hash persistido; nunca se devuelve.
+          example: Pass1234
+    LoginSuccess:
+      type: object
+      additionalProperties: false
+      required: [message, next]
+      properties:
+        message:
+          type: string
+          const: Sesion iniciada con exito
+        next:
+          type: string
+          const: /home
+    Problem:
+      type: object
+      description: Problem Details RFC 9457 con extensión estable code.
+      required: [type, title, status, detail, instance, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+          description: Código estable de error; no contiene datos personales.
+        errors:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code, message]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+      additionalProperties: true
+  responses:
+    MalformedRequest:
+      description: JSON inválido o estructura/tipo de campo incompatible.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            malformed:
+              value:
+                type: https://wallet.example.test/problems/malformed-request
+                title: Solicitud inválida
+                status: 400
+                detail: Revisa el formato de los campos indicados.
+                instance: /api/v1/onboarding/registrations
+                code: MALFORMED_REQUEST
+                errors:
+                  - field: documentNumber
+                    code: INVALID_FORMAT
+                    message: Ingresa los 8 dígitos del DNI.
+    RateLimited:
+      description: Límite temporal de solicitudes; no confirma existencia de cuenta ni resultado financiero.
+      headers:
+        Retry-After:
+          description: Segundos antes de volver a intentar, cuando corresponda.
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            limited:
+              value:
+                type: https://wallet.example.test/problems/rate-limited
+                title: Demasiados intentos
+                status: 429
+                detail: Espera antes de volver a intentarlo.
+                instance: /api/v1/sessions
+                code: RATE_LIMITED
+    InternalError:
+      description: Error inesperado; sin trazas ni detalles internos en la respuesta.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            internal:
+              value:
+                type: https://wallet.example.test/problems/internal-error
+                title: No se pudo completar la solicitud
+                status: 500
+                detail: Intenta nuevamente más tarde.
+                instance: /api/v1/onboarding/registrations
+                code: INTERNAL_ERROR
