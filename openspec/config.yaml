@@ -1,8 +1,10 @@
 schema: spec-driven
 
 context: |
-  Seven Team Wallet Lab: caso de estudio para Peru, PEN y pagos P2P.
-  Solo dinero ficticio, datos sinteticos y proveedores/KYC simulados.
+  Seven Team Wallet Lab: caso de estudio para Peru, PEN y pagos entre contactos.
+  Solo dinero ficticio y datos sinteticos. Sin proveedores externos ni simulados
+  (sin WireMock): un pago es una transferencia interna en una transaccion ACID.
+  Identidad propia: tabla de usuarios con claves hasheadas en PostgreSQL, sin Keycloak/OIDC.
   Alcance actual: estructura y documentacion; no implementar aplicaciones aun.
   Fuentes: docs/requirements/epic y docs/requirements/user-stories (originales).
   Alcance activo, en orden: HU-01 user-onboarding-mvp-completion.sp.md,
@@ -30,7 +32,7 @@ rules:
   specs:
     - Usar SHALL o MUST y escenarios WHEN/THEN verificables.
     - Mantener trazabilidad a cada criterio de aceptacion; no inventar politicas.
-    - Cubrir estados inciertos, concurrencia, duplicados y privacidad cuando aplique.
+    - Cubrir fallos parciales, reintentos con la misma clave, concurrencia, duplicados y privacidad cuando aplique.
     - Respetar el orden HU-01, HU-02, HU-04; no activar pagos sin idempotencia.
     - Cubrir busqueda por conceptos, aislamiento entre usuarios y retraso/reconstruccion del indice.
   design:

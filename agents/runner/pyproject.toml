@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wallet-agents"
+version = "0.1.0"
+description = "Human-gated CrewAI orchestration for synthetic wallet stories"
+requires-python = ">=3.12,<3.13"
+dependencies = ["crewai==1.15.28", "github-copilot-sdk==1.0.26", "pydantic==2.12.5", "PyYAML==6.0.3", "cryptography==50.0.2"]
+
+[project.scripts]
+wallet-agents = "wallet_agents.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,6 +1,12 @@
 .env
 .env.*
 !.env.example
+.wallet-control/
+.wallet-operator/
+.wallet-inputs/
+.wallet-venv/
+agents/runner/*.egg-info/
+agents/runner/build/
 node_modules/
 dist/
 .angular/

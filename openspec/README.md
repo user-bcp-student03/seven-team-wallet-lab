@@ -12,6 +12,12 @@ las HU activas en especificaciones verificables, en orden HU-01 -> HU-02 -> HU-0
 HU-03/HU-05/HU-06 estan diferidas, con fuentes intactas. No afirma que el producto este
 especificado por completo ni autoriza su construccion.
 
+[add-crewai-wallet-orchestration](changes/add-crewai-wallet-orchestration/proposal.md)
+es el cambio separado del runner, aprobado para implementacion: fuentes,
+artefactos por HU, Flow, gates G0-G3 y construccion supervisada. Incluye un
+[runner ejecutable](../agents/runner/README.md) verificado offline. Q-15/Q-16
+siguen abiertos para la activacion real y las versiones del producto.
+
 [specs/](specs/README.md) se reserva para la baseline vigente. Las capacidades
 propuestas viven en `changes/<change>/specs/<capability>/spec.md` como delta specs;
 no sincronizar borradores como si fueran comportamiento ya entregado.
@@ -31,6 +37,7 @@ Desde la raiz, con Node/npm disponibles y la version validada en esta entrega:
 npx --yes @fission-ai/openspec@1.14.3 list --json
 npx --yes @fission-ai/openspec@1.14.3 status --change define-wallet-mvp --json
 npx --yes @fission-ai/openspec@1.14.3 validate define-wallet-mvp --strict
+npx --yes @fission-ai/openspec@1.14.3 validate add-crewai-wallet-orchestration --strict
 ```
 
 Estos comandos inspeccionan/validan documentos; no ejecutan pagos ni agentes.
@@ -42,4 +49,4 @@ se ejecutaran tambien desde imagenes OCI fijadas, compatibles con Podman Desktop
 
 El CLI valida forma y estructura, no la suficiencia financiera de las reglas.
 La existencia de tareas no equivale a aprobacion. Los gates humanos se imponen
-en el futuro runner/CI, no mediante el esquema estandar de OpenSpec.
+en el runner/CI, no mediante el esquema estandar de OpenSpec.

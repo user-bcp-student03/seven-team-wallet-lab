@@ -52,18 +52,20 @@ acceptance and SHALL keep pending tasks unchecked until their evidence exists.
 - **THEN** the task remains incomplete and the missing verification is reported
 
 ### Requirement: Laboratory boundaries
-The workflow SHALL constrain all planned payment and KYC integrations to
-synthetic data, simulated providers and fictitious funds for this case study.
+The workflow SHALL constrain the case study to synthetic data and fictitious
+funds, with no external or simulated payment or KYC providers: payments are
+internal transfers between wallet contacts settled in the ledger, and identity is
+a users table with hashed passwords in PostgreSQL.
 
-#### Scenario: A proposal requests real payment processing
-- **WHEN** a change introduces real funds or external production credentials
-- **THEN** the change requires a separate scope and security review before any integration is enabled
+#### Scenario: A proposal requests a provider or real payment processing
+- **WHEN** a change introduces real funds, an external or simulated provider, WireMock, an external identity provider or production credentials
+- **THEN** the change requires an ADR, a separate scope and a security review before any integration is enabled
 
 ### Requirement: Containerized environment on Podman Desktop
 The implementation design SHALL package the entire runnable environment in OCI
 containers with Compose compatible with Docker and Podman Desktop, including
-applications, PostgreSQL, Meilisearch, identity, simulators, observability and
-the future CrewAI runner, without requiring product runtimes on the host.
+applications, PostgreSQL, Meilisearch, observability and
+the CrewAI runner, without requiring product runtimes on the host.
 
 #### Scenario: A local environment is prepared for execution
 - **WHEN** the environment implementation is reviewed

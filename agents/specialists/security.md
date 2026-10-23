@@ -1,4 +1,6 @@
 ---
+agent_id: security_reviewer
+status: draft
 rol: Seguridad
 description: "Analiza vulnerabilidades en wallets con Angular 21 (web responsive), Java Spring Boot y PostgreSQL. Revisa autorización, integridad de pagos, concurrencia, SQL, secretos, sesión y configuración frente a los lineamientos del proyecto."
 tools: [read, search]

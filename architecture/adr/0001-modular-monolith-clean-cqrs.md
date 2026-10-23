@@ -7,14 +7,15 @@
 ## Contexto
 
 La epica apunta a 1,000-2,000 MAU y lanzamiento en un trimestre. La integridad
-financiera y las dependencias externas pesan mas que el escalado independiente.
+financiera y la consistencia local pesan mas que el escalado independiente.
 
 ## Decision
 
 Un backend desplegable Java 21/Spring Boot, organizado por capacidades. Dentro
 de cada modulo: domain, application, adapters/in y adapters/out. El dominio
 define invariantes y objetos de valor; application orquesta casos de uso y
-puertos. Los adaptadores implementan REST, OIDC, SQL y proveedores.
+puertos. Los adaptadores implementan REST, SQL y Meilisearch; no hay
+proveedores externos ni IdP.
 
 CQRS separa commands y queries con contratos distintos. Commands validan
 invariantes sobre PostgreSQL; queries de movimientos/conceptos usan Meilisearch

@@ -19,7 +19,7 @@ implement_frontend:
   description: >
     Trabaja solo tareas Angular autorizadas de {change_id} con contexto
     {approved_context}. Respeta contratos aprobados, roles, validaciones,
-    accesibilidad y estados de pago incierto. No infieras exito financiero por
+    accesibilidad y reintento con la misma clave. No infieras exito financiero por
     terminar una peticion HTTP. Reporta bloqueo si faltan runner/tools/contratos.
     Limita vistas a onboarding, pago e historial buscable; distingue indice
     atrasado/no disponible de pago fallido. Nunca accedas directamente al indice.
@@ -35,7 +35,7 @@ implement_platform:
     {approved_context}. No expongas secretos ni PII y no levantes servicios sin
     permiso especifico. Separa eventos financieros de trazas muestreadas.
     Todo en imagenes OCI y Compose Docker/Podman Desktop, incluidos aplicaciones,
-    PostgreSQL, Meilisearch, identidad, simuladores, OTel y runner CrewAI.
+    PostgreSQL, Meilisearch, OTel y runner CrewAI; sin Keycloak ni simuladores.
     No montes sockets del motor en agentes ni exijas Java/Node/Python en el host.
     Si no hay tools/sandbox, entrega propuesta y declara que nada se ejecuto.
   expected_output: >

@@ -34,11 +34,11 @@ duplicados: los invariantes de HU-04 condicionan la habilitacion de HU-02.
 
 ## Cobertura activa a definir
 
-- HU-01 CA1-3: pasos, validacion, KYC simulado y activacion de wallet.
+- HU-01 CA1-3: pasos, validacion de identidad interna, usuarios con clave hasheada y activacion de wallet.
 - HU-01 CA4-6: eventos por paso, frontera temporal, cohortes y atribucion de gasto.
-- HU-02 CA1-4: identidad del destino, limites, estados, referencia e historial.
+- HU-02 CA1-4: identidad del destino (un contacto), limites, estados, referencia e historial.
 - HU-02 CA5-6: funnel de checkout y evento de activacion para MAU.
-- HU-04 CA1-4: alcance/retencion de claves, replay, correlacion y conciliacion.
+- HU-04 CA1-4: alcance/retencion de claves, replay, correlacion y evidencia original/reintento.
 
 HU-04 CA4 conserva evidencia que distingue originales/reintentos en salidas de
 control; no exige construir toda la funcionalidad diaria de HU-06 en este alcance.
@@ -53,6 +53,12 @@ no sustituye al ledger ni determina el resultado de un pago.
 
 Todo el entorno futuro debe levantarse en contenedores OCI mediante Compose
 compatible con Docker y Podman Desktop. Se mantiene la fase de documentacion.
+
+Sin proveedores externos ni simulados (sin WireMock): los pagos son transferencias
+internas entre contactos, liquidadas en el ledger. La identidad es una tabla de
+usuarios con claves hasheadas en PostgreSQL, sin Keycloak/OIDC. Las HU originales
+que hablan de proveedores, rieles o KYC simulado no se modifican; su alcance se
+cierra con producto en Q-01, Q-05 y Q-18.
 
 La futura especificacion debe relacionar cada CA con escenarios y pruebas. Este
 indice no reemplaza los criterios originales ni declara su implementacion.

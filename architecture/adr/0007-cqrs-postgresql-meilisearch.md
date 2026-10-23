@@ -14,7 +14,7 @@ de concepto, campos y filtros no figura en las HU originales y se define en Q-17
 ## Decision
 
 PostgreSQL aloja write model, ledger, cuentas/reservas, pagos, claves idempotentes,
-auditoria e inbox/outbox. Es fuente de verdad tambien para lecturas de saldo,
+auditoria y outbox. Es fuente de verdad tambien para lecturas de saldo,
 estado por referencia, ownership actual y replay de una clave. Meilisearch aloja
 un indice derivado para consultas de movimientos/conceptos; no es ledger ni
 autoridad de autorizacion financiera. CQRS no implica que toda query use el indice.
@@ -42,8 +42,7 @@ Un error de filtro o configuracion debe fallar cerrado, nunca buscar sin scope.
 
 Indexar solo campos aprobados: identificador estable, propietario interno y
 concepto/fecha/tipo segun Q-17. Importes/estados, si se incluyen, son proyecciones
-no autoritativas. No indexar documentos KYC, tokens, DNI, claves idempotentes ni
-payloads de proveedor. El concepto es texto potencialmente sensible: definir
+no autoritativas. No indexar documentos de identidad, claves, hashes, tokens, DNI ni claves idempotentes. El concepto es texto potencialmente sensible: definir
 limites, retencion y tratamiento antes de construir. Busqueda por texto no implica
 embeddings, IA semantica ni clasificacion automatica sin aprobacion.
 
@@ -56,8 +55,8 @@ y restauracion. Un resultado atrasado no puede divulgar datos ya no autorizados.
 
 Todo en contenedores OCI, Compose compatible con Docker y Podman Desktop:
 PostgreSQL y Meilisearch con volumenes independientes, healthchecks e imagenes
-fijadas; red interna para el indice y la base. Aplicaciones, identidad, simuladores,
-OTel y futuro runner CrewAI tambien se ejecutan en contenedores. Validar proveedor
+fijadas; red interna para el indice y la base. Aplicaciones, observabilidad,
+OTel y el runner CrewAI tambien se ejecutan en contenedores. Validar proveedor
 de `podman compose` y no asumir que Podman Desktop lo instala/configura por si solo.
 
 Medir lag de indexacion, edad/backlog outbox, tareas fallidas y duracion de reindex.

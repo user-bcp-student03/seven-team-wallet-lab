@@ -1,0 +1,58 @@
+name: wallet-agents
+x-common: &common
+  image: localhost/wallet-agents:0.1.0
+  build:
+    context: .
+    target: runtime
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 2g
+  cpus: 2
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,size=256m,mode=1777
+  user: "${WALLET_UID:-65532}:${WALLET_GID:-65532}"
+services:
+  runner:
+    <<: *common
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_BASE: ${OPENAI_API_BASE:-}
+      COPILOT_GITHUB_TOKEN: ${COPILOT_GITHUB_TOKEN:-}
+    volumes:
+      - ../../AGENTS.md:/workspace/AGENTS.md:ro
+      - ../../architecture:/workspace/architecture:ro
+      - ../../docs/requirements:/workspace/docs/requirements:ro
+      - ../config:/workspace/agents/config:ro
+      - ../skills:/workspace/agents/skills:ro
+      - ../specialists:/workspace/agents/specialists:ro
+      - ../../backend:/workspace/backend:ro
+      - ../../frontend:/workspace/frontend:ro
+      - ../../orchestration:/workspace/orchestration:ro
+      - ../runs:/runs:rw
+      - ../../.wallet-control/policy.json:/control/policy.json:ro
+      - ../../.wallet-control/operator.pub:/control/operator.pub:ro
+      - ../../.wallet-control/approvals:/control/approvals:ro
+      - ../../.wallet-control/evidence:/control/evidence:ro
+      - ../../.wallet-inputs:/inputs:ro
+    command: [--help]
+  operator:
+    <<: *common
+    network_mode: none
+    volumes:
+      - ../../AGENTS.md:/workspace/AGENTS.md:ro
+      - ../../architecture:/workspace/architecture:ro
+      - ../../docs/requirements:/workspace/docs/requirements:ro
+      - ../config:/workspace/agents/config:ro
+      - ../skills:/workspace/agents/skills:ro
+      - ../specialists:/workspace/agents/specialists:ro
+      - ../../backend:/workspace/backend:ro
+      - ../../frontend:/workspace/frontend:ro
+      - ../../orchestration:/workspace/orchestration:ro
+      - ../runs:/runs:rw
+      - ../../.wallet-control:/control:rw
+      - ../../.wallet-operator:/operator-secret:rw
+      - ../../.wallet-inputs:/inputs:ro
+    command: [--help]

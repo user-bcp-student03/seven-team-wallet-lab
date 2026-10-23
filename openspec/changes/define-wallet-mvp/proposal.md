@@ -3,7 +3,7 @@
 ## Why
 
 El incremento activo contiene HU-01 onboarding, HU-02 confirmacion de pago y
-HU-04 idempotencia, en esa secuencia. No fija todavia KYC, estados, limites,
+HU-04 idempotencia, en esa secuencia. No fija todavia validacion de identidad, estados, limites,
 retencion idempotente ni semantica de busqueda por conceptos.
 Construir ahora obligaria a inventar politicas financieras y criterios de exito.
 

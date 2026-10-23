@@ -1,10 +1,9 @@
-# Contrato de orquestacion futura
+# Flujo CrewAI y gates humanos
 
-Solo diseno; no es un Flow ejecutable ni un esquema nativo de CrewAI. El futuro
-runner Python implementara las transiciones y validara aprobaciones fuera del LLM.
-Alcance secuencial: HU-01 -> HU-02 -> HU-04; no hay trabajo activo de las otras
-HU. El runner sera un contenedor OCI orquestado por Compose Docker/Podman Desktop,
-sin acceso al socket del motor ni a PostgreSQL/Meilisearch del producto.
+Este documento describe el orden operativo implementado por el
+[runner](../runner/README.md), con CrewAI Flow/Crews nativos y Compose OCI.
+Alcance activo: HU-01 -> HU-02 -> HU-04; las demas HU siguen diferidas. La
+aprobacion de implementacion del runner no aprueba gasto de modelos ni producto.
 
 ## Flujo de artefactos y desarrollo
 
@@ -50,9 +49,9 @@ Si cambia materialmente el alcance, specs, diseno o tareas durante la correccion
 se invalida la aprobacion y se vuelve al gate de artefactos; no se continua con
 la aprobacion anterior. No habilitar pagos antes de verificar idempotencia.
 
-## Agentes y cascarones de instrucciones
+## Agentes y perfiles de instrucciones
 
-| Agente principal | ID CrewAI | Perfil por completar | Artefactos y responsabilidad |
+| Agente principal | ID CrewAI | Perfil de instrucciones | Artefactos y responsabilidad |
 | --- | --- | --- | --- |
 | PO | product_analyst | [po.md](../specialists/po.md) | Proposal, specs, prioridades y recomendacion de aceptacion |
 | AI Engineering | ai_engineer | [ai-engineering.md](../specialists/ai-engineering.md) | Plan tecnico, tareas, desarrollo e integracion |
@@ -60,10 +59,9 @@ la aprobacion anterior. No habilitar pagos antes de verificar idempotencia.
 | Arquitecto | solution_architect | [architect.md](../specialists/architect.md) | Design, ADR, C4, contratos y conformidad |
 | Security | security_reviewer | [security.md](../specialists/security.md) | Amenazas, controles y hallazgos de diseno/implementacion |
 
-Los perfiles son documentos propios con estado draft. Sus checklists representan
-instrucciones pendientes, no tareas de construccion terminadas. El futuro runner
-debera rechazar la activacion de un perfil incompleto/no revisado. No son archivos
-de agentes de Copilot ni se cargan automaticamente por existir en el repositorio.
+Los perfiles tienen estado `configured`; el runner los carga y calcula su revision.
+G0 requiere revisarlos para el run concreto. Ese estado no es una aprobacion ni
+concede permisos. No son archivos de agentes de Copilot ni se ejecutan por existir.
 
 ## Fases y configuraciones
 
@@ -102,13 +100,11 @@ El runner invalida la aprobacion si los artefactos cambian.
 
 ## Criterios de activacion
 
-1. Completar y revisar los cinco perfiles; cerrar Q-15/Q-16: modelo, coste, versiones y herramientas disponibles.
-2. Crear un cambio OpenSpec para runner/Flow y aprobarlo expresamente.
-3. Implementar contexto seguro, gate determinista, sandbox y logs sanitizados.
-4. Probar arranque del contenedor en Podman Desktop, denegacion sin aprobacion, revision cambiada, escape de rutas,
-   instrucciones inyectadas, acceso a secretos y agotamiento de presupuesto.
-5. Ejecutar primero un caso documental controlado; habilitar construccion solo
-   tras aprobar su evidencia y un cambio de producto acotado.
+1. Configurar y revisar proveedor/modelo, presupuesto y egress externo antes de autorizar G0.
+2. Preparar imagenes de checks por digest y criterios para sus comandos; la politica ejemplo no es ejecutable.
+3. Resolver preguntas funcionales aplicables; el runner no las decide.
+4. Autorizar por separado cada G1/G2/G3. G2 habilita construccion solo sobre la HU aprobada.
+5. Verificar checks reales y revisar evidencias; no usar dobles offline como evidencia del producto.
 
 Los callbacks o la memoria de CrewAI no sustituyen un control de permisos.
 Las rondas de correccion deben tener limite; al agotarlo se escala al humano.

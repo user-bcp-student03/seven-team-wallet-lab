@@ -1,0 +1,1 @@
+"""Non-executable orchestration scaffolding; no crews are activated on import."""

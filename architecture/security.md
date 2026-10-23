@@ -1,26 +1,28 @@
 # Seguridad y amenazas iniciales
 
 Propuesta pendiente de revision. No constituye certificacion ni dictamen legal.
-Usar identidades sinteticas; el KYC es un simulador y no verifica identidad real.
+Usar identidades sinteticas; no hay KYC externo ni verificacion de identidad real.
+La identidad es propia: tabla de usuarios con claves hasheadas en PostgreSQL.
 
 ## Fronteras de confianza
 
-Navegador no confiable -> BFF/API -> dominio/SQL; callbacks del proveedor
-simulado -> inbox validado; operadores -> herramientas privilegiadas; agentes
-LLM -> workspace aislado, nunca base financiera. El emisor OIDC y el Collector
-son servicios internos con configuracion y acceso independientes.
+Navegador no confiable -> BFF/API -> dominio/SQL; operadores -> herramientas
+privilegiadas; agentes LLM -> workspace aislado, nunca base financiera. No hay
+terceros externos ni IdP. El Collector es un servicio interno con configuracion
+y acceso independientes.
 
 | Amenaza | Control previsto | Evidencia requerida |
 | --- | --- | --- |
-| Robo de sesion, XSS, CSRF | BFF, cookies seguras, CSP, sanitizacion, token CSRF | Pruebas de sesion, cabeceras y peticion cruzada |
+| Compromiso de credenciales | Argon2id con sal unica, parametros aprobados, comparacion en tiempo constante, limite de intentos y respuestas uniformes | Hashes verificables sin claves en claro, fuerza bruta bloqueada, sin enumeracion de usuarios |
+| Robo de sesion, XSS, CSRF | BFF, sesion de servidor, cookies seguras, rotacion del ID tras login, CSP, token CSRF | Pruebas de sesion, cabeceras y peticion cruzada |
 | Acceso a wallet/movimientos ajenos | Autorizacion por objeto en servidor y scope de busqueda derivado de sesion | Pruebas negativas con dos pagadores, filtros manipulados y permisos desactualizados en indice |
-| Doble gasto y replay | Ledger ACID, clave durable, inbox UNIQUE | Carreras y repeticion tras reinicio |
-| Webhook falsificado o fuera de orden | Firma/mTLS segun contrato, ventana anti-replay, transiciones validas | Firmas invalidas, duplicados, timestamps antiguos |
+| Doble gasto y replay | Transaccion ACID local, clave de idempotencia durable con UNIQUE | Carreras y repeticion tras reinicio |
+| Pago a destino no autorizado | El destino debe ser un contacto del pagador, validado en servidor | Destino ajeno, contacto eliminado y payload alterado |
 | Manipulacion del importe/destino | Validacion en servidor y confirmacion vinculada a la intencion | Payload alterado y confirmacion no coincidente |
-| Fuga en busqueda/conceptos | Red interna Meilisearch, claves separadas, allowlist de campos, ownership y retencion | Snippets/facets/conteos sin datos ajenos; sin KYC/tokens/claves indexadas |
+| Fuga en busqueda/conceptos | Red interna Meilisearch, claves separadas, allowlist de campos, ownership y retencion | Snippets/facets/conteos sin datos ajenos; sin datos de identidad/tokens/claves indexadas |
 | Fuga por logs/LLM | Redaccion, allowlists, contexto sintetico y acceso limitado | Pruebas de ausencia de secretos/PII |
 | Dependencias comprometidas | Versiones fijadas, SCA, SBOM y revision de artefactos | Reportes y excepciones con caducidad |
-| Interrupcion del proveedor | Timeout, circuit breaker, recuperacion y conciliacion | Inyeccion de fallos sin duplicidad financiera |
+| Interrupcion de un worker | Outbox recuperable y reintentos acotados | Caida del worker sin perdida de eventos ni duplicidad financiera |
 
 ## Politicas a cerrar
 
@@ -39,5 +41,5 @@ no se declaran cumplidos por acumular herramientas.
 
 - [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)
 - [OWASP API Security](https://owasp.org/www-project-api-security/)
-- [OAuth Security BCP RFC 9700](https://www.rfc-editor.org/rfc/rfc9700)
+- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
 - [ADR de seguridad](adr/0004-security-baseline.md)

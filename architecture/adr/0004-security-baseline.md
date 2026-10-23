@@ -15,8 +15,11 @@ Usar OWASP ASVS nivel 2 como base de verificacion y evaluar controles de nivel 3
 segun amenazas de pago y acceso privilegiado. OWASP API Security Top 10 sirve
 como guia complementaria, no reemplaza requisitos verificables.
 
-Proponer Keycloak/OIDC con Authorization Code y PKCE, backend como BFF, tokens
-solo en servidor y cookies HttpOnly, Secure y SameSite. Exigir CSRF, CORS
+Identidad propia: tabla de usuarios en PostgreSQL con claves almacenadas solo
+como hash (Argon2id con parametros aprobados, sal unica) y backend como BFF con
+sesion en servidor y cookies HttpOnly, Secure y SameSite; sin Keycloak, OIDC ni
+tokens en el navegador. Exigir comparacion en tiempo constante, politica de claves,
+limite de intentos/bloqueo, rotacion del ID de sesion tras login, CSRF, CORS
 restrictivo, expiracion de sesion y autorizacion por rol, pertenencia y objeto.
 MFA/step-up y recuperacion de cuenta quedan sujetos a Q-11, especialmente para
 operaciones privilegiadas y reversos.
@@ -31,14 +34,17 @@ requiere filtros de ownership impuestos por BFF y verificacion SQL actual,
 incluidos snippets, facets y conteos; sin credenciales ni acceso desde el cliente.
 Conceptos y retencion del indice requieren revision de privacidad Q-13/Q-17.
 
-Modelar amenazas, probar abuso de objetos, callbacks falsos, replay, escalacion
+Modelar amenazas, probar abuso de objetos, fuerza bruta/enumeracion de usuarios,
+replay, escalacion
 de privilegios y exposicion de datos. Construccion requiere SAST/SCA, SBOM,
 secret scanning y pruebas dinamicas segun riesgo.
 
 ## Alternativas
 
 JWT en localStorage simplifica el cliente, pero aumenta exposicion frente a XSS.
-Declarar cumplimiento por usar OIDC/ASVS confunde controles con certificacion.
+Keycloak/OIDC aporta un IdP maduro, pero se descarta por alcance del laboratorio;
+asume el riesgo de custodiar claves propias, mitigado con hash fuerte y pruebas.
+Declarar cumplimiento por usar ASVS confunde controles con certificacion.
 
 ## Consecuencias y verificacion
 

@@ -11,13 +11,15 @@ Modulos activos: identity-onboarding, wallet-ledger, payments, movement-search
 y analytics. Merchant, reconciliation y support se difieren con HU-03/HU-05/HU-06.
 Cada modulo separa domain, application, adapters/in y
 adapters/out; wiring Spring en el borde. Un unico backend contiene API/BFF,
-workers outbox/inbox y proyeccion de busqueda, sin extraer microservicios ni
+workers outbox y proyeccion de busqueda, sin extraer microservicios ni
 implementar conciliacion diaria. HU-04 CA4 conserva evidencia original/reintento.
 
 Dominio puro: Money, Currency, PaymentId, estado e invariantes; ledger sin tipos
 JPA/Spring. Aplicacion: commands y queries, puertos, autorizacion de caso de uso
-y fronteras transaccionales. Adaptadores: REST, SQL, Meilisearch, OIDC, rieles y
-KYC simulado. PostgreSQL mantiene comandos, resultado, ledger e idempotencia;
+y fronteras transaccionales. Adaptadores: REST, SQL y Meilisearch. No hay
+proveedores de pago/KYC ni IdP: el pago es una transferencia entre contactos
+dentro de una transaccion local y los usuarios viven en una tabla de PostgreSQL
+con clave hasheada (Argon2id, Spring Security) y sesion de servidor. PostgreSQL mantiene comandos, resultado, ledger e idempotencia;
 Meilisearch busca movimientos/conceptos, sin determinar saldos ni estados finales.
 
 Indexar mediante outbox confirmado con el cambio SQL; worker idempotente con

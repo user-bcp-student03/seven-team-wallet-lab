@@ -1,6 +1,6 @@
 ---
 name: ledger-idempotency
-description: "Usar para doble partida, importes exactos, reservas, claves idempotentes, concurrencia y recuperacion de pagos HU-02/HU-04."
+description: "Usar para doble partida, importes exactos, claves idempotentes, concurrencia y pagos internos entre contactos HU-02/HU-04."
 ---
 
 # Integridad financiera e idempotencia
@@ -13,8 +13,10 @@ description: "Usar para doble partida, importes exactos, reservas, claves idempo
    BigDecimal/NUMERIC; nunca float/double ni saldos autoritativos en el indice.
 3. Definir clave por ambito, fingerprint, unicidad SQL, transaccion y locking.
    Replay devuelve la referencia original; payload conflictivo no mueve fondos.
-4. Cubrir solicitudes simultaneas, crash antes/despues de envio, callbacks
-   duplicados/fuera de orden e incertidumbre. Timeout no significa fallo.
+4. Un pago es una transferencia interna entre contactos en una sola transaccion
+   ACID (debito, credito, clave y outbox). Cubrir solicitudes simultaneas, crash
+   antes del commit, reintentos con la misma clave y destino que no es contacto.
+   Un timeout del cliente no significa fallo; no hay proveedores ni callbacks.
 5. Mantener evidencia original/reintento HU-04 CA4 sin construir HU-06 diaria.
    Bloquear habilitacion de pagos hasta verificar invariantes idempotentes.
 

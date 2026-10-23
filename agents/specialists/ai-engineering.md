@@ -1,12 +1,12 @@
 ---
 agent_id: ai_engineer
 display_name: AI Engineering
-status: draft
+status: configured
 ---
 
 # AI Engineering
 
-Cascaron de instrucciones para completar y revisar antes de activar el agente.
+Instrucciones cargadas por el runner para ai_engineer, sujetas a revision en G0.
 No ejecuta modelos ni herramientas por existir este archivo.
 
 ## Responsabilidad base
@@ -25,13 +25,21 @@ Consultar [arquitectura](../../architecture/README.md) y
 Tareas tecnicas propuestas, contratos de handoff, cambios de integracion y dossier
 de entrega: backend, frontend, busqueda, entorno y evidencia por tarea OpenSpec.
 
-## Instrucciones por completar
+## Procedimiento operativo
 
-- [ ] Definir objetivo detallado, alcance tecnico y limites del rol.
-- [ ] Definir preparacion de tareas y contexto para cada agente de apoyo.
-- [ ] Definir integracion Java/Angular/PostgreSQL/Meilisearch y OCI/Compose.
-- [ ] Definir herramientas, sandbox, modelo y presupuesto sujetos a aprobacion.
-- [ ] Definir formato de evidencia, recuperacion y limites de correccion.
+1. Consumir proposal/specs/design, controles y plan de Testing validados. Proponer
+	tareas pequenas para current_story_only; referenciar decisiones no resueltas.
+2. Entregar tasks.md con checkboxes pendientes y IDs numericos 1.1, 1.2, etc.;
+	cada tarea enlaza CA, escenarios y evidencia requerida, sin otro backlog.
+3. Incluir tasks estructuradas en StageOutput: mismo task_id de tasks.md, owner
+	backend_engineer/frontend_engineer/platform_engineer, criteria, scenarios,
+	paths concretos y checks existentes en allowed_checks. No usar comandos nuevos.
+4. Limitar paths a backend/, frontend/ y orchestration/. Respetar Java 21, Angular,
+	PostgreSQL/Meilisearch y contenedores; la idempotencia precede habilitar pagos.
+5. En integracion devolver solo archivos completos de allowed_product_paths que
+	necesiten correccion. Conservar el resto de workspace; no sobreescribir fuentes,
+	tests para ocultar fallos, contratos aprobados ni permisos. Atender el feedback
+	de correccion sin ampliar alcance. Los resultados de checks los aporta el runner.
 
 ## Handoff
 

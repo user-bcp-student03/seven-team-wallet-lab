@@ -1,0 +1,32 @@
+{
+  "provider": "openai_compatible",
+  "model": "REPLACE_WITH_APPROVED_PROVIDER_MODEL",
+  "base_url": null,
+  "copilot_personal_use_approved": false,
+  "max_calls": 120,
+  "max_output_tokens": 12000,
+  "max_context_bytes": 500000,
+  "max_seconds": 86400,
+  "max_corrections": 3,
+  "approved_profiles": ["product_analyst", "solution_architect", "security_reviewer", "quality_reviewer", "ai_engineer"],
+  "checks": {
+    "openspec": {
+      "image": "REPLACE_WITH_APPROVED_TOOL_IMAGE@sha256:REPLACE_WITH_DIGEST",
+      "target": "definition",
+      "command": ["/bin/sh", "-c", "cp -a /base/. /tmp/work/ && cp -a /generated/openspec/changes/. /tmp/work/openspec/changes/ && cd /tmp/work && openspec validate {change_id} --strict --no-interactive"],
+      "timeout_seconds": 120
+    },
+    "backend-tests": {
+      "image": "REPLACE_WITH_APPROVED_BUILD_IMAGE@sha256:REPLACE_WITH_DIGEST",
+      "target": "product",
+      "command": ["/bin/sh", "-c", "cp -a /workspace/. /tmp/work/ && cd /tmp/work/backend && mvn --offline test"],
+      "timeout_seconds": 600
+    },
+    "frontend-tests": {
+      "image": "REPLACE_WITH_APPROVED_BUILD_IMAGE@sha256:REPLACE_WITH_DIGEST",
+      "target": "product",
+      "command": ["/bin/sh", "-c", "cp -a /workspace/. /tmp/work/ && cd /tmp/work/frontend && npm run test -- --watch=false"],
+      "timeout_seconds": 600
+    }
+  }
+}

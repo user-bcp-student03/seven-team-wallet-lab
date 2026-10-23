@@ -17,13 +17,30 @@ design_architecture:
     Propone el diseno de {change_id} a partir de requisitos refinados y este
     contexto: {approved_context}. Define limites, contratos REST/eventos,
     dependencias Clean Architecture, permisos y actualizaciones ADR/C4.
+    Aplica wallet-architecture: deriva de HU/CA diagramas C4 C1/C2/C3 y YAML
+    OpenAPI 3.1 con inputs/outputs tipados, mensajes de exito/error, codigos HTTP,
+    Problem Details RFC 9457, seguridad, idempotencia y ejemplos sinteticos.
+    Traza HU/CA a escenarios, componentes, operaciones y respuestas; registra
+    decisiones pendientes sin inventar contratos definitivos.
     Separa PostgreSQL autoritativo y Meilisearch para movimientos/conceptos,
     indexacion por outbox y contrato Q-17. Exige todo en contenedores OCI/Compose
     compatible con Podman Desktop, incluido runner CrewAI, sin runtimes host.
     No construyas aplicaciones ni conviertas propuestas en decisiones aprobadas.
+    Para idempotencia (HU-04) especifica en design.md contrato de clave/fingerprint,
+    replay/conflicto, modelo de datos, fronteras atomicas, e infraestructura de
+    soporte (esquema Flyway, filtro, retencion, metricas y arnes Testcontainers)
+    reflejada en C2/C3 y OpenAPI, sin Redis, broker, simuladores ni nuevas bases,
+    y con Q-07 como bloqueo abierto. Los pagos son transferencias internas entre
+    contactos en una transaccion local; la identidad es una tabla de usuarios con
+    claves hasheadas en PostgreSQL y sesion de servidor, sin Keycloak/OIDC ni
+    proveedores externos o simulados.
   expected_output: >
     Borrador de design, contratos y cambios ADR/C4 con alternativas, riesgos,
-    dependencias y preguntas que bloquean construccion.
+    dependencias y preguntas que bloquean construccion. Entregables propuestos
+    en el cambio OpenSpec: design.md con matriz de trazabilidad,
+    architecture/c4.md y
+    api/openapi.yaml; evidencia de validacion YAML/OpenAPI y Mermaid o indicacion
+    explicita de checks pendientes, sin afirmar implementacion ni aprobacion.
   agent: solution_architect
   context:
     - refine_requirements
@@ -32,11 +49,12 @@ design_architecture:
 design_financial_integrity:
   description: >
     Revisa {change_id} para ledger de doble partida, importes exactos, reservas,
-    claves/fingerprint, locking, transacciones SQL, inbox/outbox y evidencia de
+    claves/fingerprint, locking, transacciones SQL, outbox y evidencia de
     originales/reintentos HU-04 CA4. No construyas conciliacion diaria HU-06.
     Contexto autorizado: {approved_context}.
-    Cubre timeout incierto, crash entre envio y respuesta, duplicados, eventos
-    fuera de orden; el indice no determina saldos ni estados definitivos.
+    Cubre el pago interno entre contactos en una sola transaccion, crash antes del
+    commit, reintento con la misma clave y duplicados concurrentes; el indice no
+    determina saldos ni estados definitivos.
     No agregues soporte/reversos HU-05 ni resuelvas reglas Q sin humano.
   expected_output: >
     Invariantes, fronteras atomicas, propuesta de estados y matriz de fallos con
@@ -49,8 +67,9 @@ design_financial_integrity:
 
 review_security_design:
   description: >
-    Revisa amenazas de {change_id}, ownership por objeto, BFF/OIDC/CSRF, roles,
-    callbacks, secretos, auditoria, privacidad y acceso de agentes. Usa el
+    Revisa amenazas de {change_id}, ownership por objeto, autenticacion propia con
+    claves hasheadas, sesion/CSRF, roles, secretos, auditoria, privacidad y acceso de
+    agentes. Usa el
     ownership actual SQL, filtros no manipulables, ausencia de datos sensibles
     en indice, aislamiento de redes/volumenes y denegacion de sockets a agentes.
     Contexto autorizado {approved_context}. Relaciona controles ASVS con pruebas;
@@ -68,7 +87,7 @@ define_test_strategy:
   description: >
     Testing define la estrategia para {change_id} con {approved_context}, specs,
     diseno y controles Security. Mapea HU/CA a escenarios, fixtures, nivel de
-    prueba y evidencia esperada; cubre concurrencia, idempotencia, incertidumbre,
+    prueba y evidencia esperada; cubre concurrencia, idempotencia, reintentos,
     ownership, caida/reindex de Meilisearch y ejecucion OCI/Podman.
     No afirmar pruebas ejecutadas ni autorizar construccion.
   expected_output: >

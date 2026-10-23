@@ -2,7 +2,7 @@
 
 Modelo objetivo, no despliegue existente. Diagramas Mermaid con notacion C4:
 personas, sistema, contenedores y componentes con responsabilidades y tecnologias.
-Los nodos externos representan simuladores locales en el laboratorio.
+Sin sistemas externos: no hay proveedores de pago ni KYC, reales o simulados.
 Alcance: HU-01 -> HU-02 -> HU-04. No se diagraman como activos comercios,
 soporte/disputas ni conciliacion operativa. Todo nodo ejecutable se desplegara
 en contenedores OCI con Compose compatible con Docker y Podman Desktop.
@@ -12,13 +12,10 @@ en contenedores OCI con Compose compatible con Docker y Podman Desktop.
 ```mermaid
 flowchart LR
     payer["Persona: pagador"]
-    wallet["Sistema: Seven Team Wallet\nOnboarding, P2P, idempotencia e historial buscable"]
-    rail["Sistema externo simulado:\nrieles de pago"]
-    kyc["Sistema externo simulado:\nverificacion KYC"]
-    payer -->|"Onboarding, transferencia y confirmacion"| wallet
-    wallet -->|"Intencion, consulta y resultado"| rail
-    rail -->|"Callbacks autenticados"| wallet
-    wallet -->|"Validacion sintetica"| kyc
+    contact["Persona: contacto\nOtro usuario de la wallet que recibe el pago"]
+    wallet["Sistema: Seven Team Wallet\nOnboarding, pagos entre contactos, idempotencia e historial buscable"]
+    payer -->|"Onboarding, pago a un contacto y confirmacion"| wallet
+    wallet -->|"Saldo y movimiento acreditado"| contact
 ```
 
 ## Nivel 2: Contenedores
@@ -28,24 +25,19 @@ flowchart TB
     users["Persona: pagador"]
     subgraph boundary["Sistema Seven Team Wallet - OCI / Compose en Podman Desktop"]
         web["Contenedor: Web Angular\nOnboarding, pago e historial"]
-        api["Contenedor: Backend Java 21 / Spring Boot\nBFF, API REST, modulos y workers"]
-        db[("Contenedor: PostgreSQL\nWrite model, ledger, idempotencia e inbox/outbox")]
+        api["Contenedor: Backend Java 21 / Spring Boot\nBFF, autenticacion propia, API REST, modulos y workers"]
+        db[("Contenedor: PostgreSQL\nUsuarios con clave hasheada, contactos, ledger, idempotencia y outbox")]
         search[("Contenedor: Meilisearch\nRead model de movimientos y conceptos")]
-        oidc["Contenedor: Keycloak\nOIDC e identidad local"]
         collector["Contenedor: OTel Collector\nRedaccion y exportacion OTLP"]
         metrics["Contenedor: Prometheus\nMetricas"]
         traces["Contenedor: Tempo\nTrazas"]
         logs["Contenedor: Loki\nLogs"]
         grafana["Contenedor: Grafana\nDashboards operativos"]
     end
-    sims["Contenedor externo simulado\nWireMock: rieles y KYC"]
     users --> web
     web -->|"HTTPS, cookie de sesion, REST"| api
-    api -->|"OIDC, tokens en servidor"| oidc
-    api -->|"SQL: commands y lecturas autoritativas"| db
+    api -->|"SQL: usuarios, commands y lecturas autoritativas"| db
     api -->|"Worker outbox: proyeccion; BFF: busqueda con ownership"| search
-    api -->|"HTTPS por puertos"| sims
-    sims -->|"Webhook autenticado"| api
     api -->|"OTLP"| collector
     collector --> metrics
     collector --> traces
@@ -56,8 +48,9 @@ flowchart TB
 ```
 
 PostgreSQL es tecnologia compartida, no licencia para compartir tablas entre
-modulos; Keycloak usa base/credenciales propias. El navegador no recibe tokens
-OIDC persistentes. El worker no es un microservicio separado en este modelo.
+modulos. Las claves se guardan solo como hash en la tabla de usuarios; el
+navegador recibe una cookie de sesion de servidor, sin tokens persistentes.
+El worker no es un microservicio separado en este modelo.
 Meilisearch no tiene acceso desde el navegador y no es autoridad financiera.
 Su volumen es independiente del SQL. Un perfil de herramientas separado alojara
 CrewAI y OpenSpec, sin acceso a datos financieros ni socket del motor.
@@ -66,21 +59,23 @@ CrewAI y OpenSpec, sin acceso a datos financieros ni socket del motor.
 
 ```mermaid
 flowchart LR
-    inbound["Adaptadores de entrada\nREST/BFF, webhooks y scheduler"]
-    auth["Seguridad\nSesion, CSRF, RBAC y ownership"]
-    onboarding["identity-onboarding\nPasos y activacion"]
-    payments["payments\nCommands, estados, idempotencia y queries"]
-    ledger["wallet-ledger\nCuentas, reservas y doble partida"]
+    inbound["Adaptadores de entrada\nREST/BFF y scheduler"]
+    auth["Seguridad\nLogin con hash de clave, sesion, CSRF, RBAC y ownership"]
+    onboarding["identity-onboarding\nUsuarios, contactos, pasos y activacion"]
+    payments["payments\nPago entre contactos, estados, idempotencia y queries"]
+    idem["Filtro de idempotencia\nClave, fingerprint, replay y conflicto"]
+    ledger["wallet-ledger\nCuentas y doble partida"]
     movementSearch["movement-search\nQueries por concepto y movimientos autorizados"]
     projection["Worker de proyeccion\nOutbox, version y checkpoint de indexacion"]
     analytics["analytics\nEventos y proyecciones de negocio"]
-    ports["Puertos de salida\nRepositorios, proveedores, KYC y eventos"]
-    sql["Adaptadores SQL\nPostgreSQL, inbox y outbox"]
+    ports["Puertos de salida\nRepositorios y eventos"]
+    sql["Adaptadores SQL\nPostgreSQL y outbox"]
     index["Adaptador de busqueda\nMeilisearch HTTP/SDK"]
-    external["Adaptadores externos\nRieles y KYC simulados"]
     inbound --> auth
     auth --> onboarding
     auth --> payments
+    auth --> idem
+    idem -->|"Reserva clave UNIQUE y decide replay"| payments
     auth --> movementSearch
     payments -->|"API interna, transaccion local"| ledger
     projection -->|"Lee outbox SQL; confirma tareas del indice"| ports
@@ -91,12 +86,15 @@ flowchart LR
     analytics --> ports
     ports -.->|"Implementado por"| sql
     ports -.->|"Implementado por"| index
-    ports -.->|"Implementado por"| external
 ```
 
 Dentro de cada modulo: adaptadores -> application -> domain. Las flechas entre
 componentes son colaboraciones, no dependencias del dominio sobre SQL. Analitica
 consume eventos durables via worker; no condiciona el commit financiero.
+El filtro de idempotencia es un componente del mismo backend (sin microservicio
+ni broker); persiste claves en PostgreSQL, nunca en
+Meilisearch ni memoria. El pago, la clave y el outbox se confirman en una sola
+transaccion. Retencion y plazos siguen pendientes de Q-07.
 
 ## Vistas complementarias
 

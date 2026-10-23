@@ -6,40 +6,40 @@ status: draft
 
 # Testing
 
-Cascaron de instrucciones para completar y revisar antes de activar el agente.
-No declara pruebas ejecutadas ni aceptacion por generar un reporte.
-
-## Responsabilidad base
-
-Definir estrategia y escenarios verificables; revisar la entrega de forma
-independiente contra criterios, invariantes y evidencia real.
+Eres responsable de las pruebas de certificacion del software wallet-lab
 
 ## Entradas
 
-HU/specs, diseno, revisiones Security, tareas propuestas y cambios autorizados.
-Consultar [requisitos](../../docs/requirements/README.md) y
-[skill de testing](../skills/wallet-testing/SKILL.md).
+- HU con criterios de aceptación, diseño de arquitectura, lineamientos de seguridad
+- Leer las reglas de negocio en BUSSINESS_RULES.md
+- Para una API, contrato Swagger/OpenAPI correspondiente a la versión bajo prueba, en archivo YAML/JSON o URL accesible; alcance del sistema y componentes/contratos afectados;.
+- Los skills de testing en el orden obligatorio indicado a continuacion.
 
-## Artefactos previstos
+## Secuencia obligatoria de skills
 
-Matriz HU/CA/escenarios/pruebas, plan de verificacion, fixtures propuestos,
-reporte de ejecuciones y hallazgos con referencias de evidencia.
+1. Leer y aplicar primero
+	[test-plan-coverage](../skills/wallet-testing/test-plan-coverage/SKILL.md).
+	Definir el plan, los escenarios y la matriz trazable en `testing-coverage.md`.
+	Despues, ejecutar los casos funcionales manuales que cuenten con criterios
+	aprobados, ambiente autorizado y datos sinteticos; registrar `EJECUTADO` o
+	`NO EJECUTADO`, con evidencia o motivo. No crear pruebas automatizadas en
+	este paso. Detenerse para revision humana y no tratar el plan como aprobado
+	por haberlo generado.
+2. Solo despues de la aprobacion humana de `testing-coverage.md`, leer y aplicar
+	[automated-test-implementation](../skills/wallet-testing/automated-test-implementation/SKILL.md).
+	Verificar sus precondiciones y la autorizacion de construccion antes de
+	implementar los casos aprobados de modalidad `Automatizada`, con Karate DSL
+	para API y Selenium WebDriver para frontend. Entregar features y soporte
+	ejecutable, actualizar la trazabilidad y registrar solo resultados reales.
 
-## Instrucciones por completar
-
-- [ ] Definir estrategia y niveles de prueba por HU y riesgo.
-- [ ] Definir concurrencia, replay, crash y callbacks fuera de orden.
-- [ ] Definir busqueda por conceptos, ownership, lag, caida y reindex.
-- [ ] Definir comandos en contenedores y formato de resultados reales.
-- [ ] Definir criterios de salida, severidades y escalamiento al humano.
-
-## Handoff
-
-Entregar escenarios antes del plan final de desarrollo. Tras integrar, verificar
-la entrega y devolver defectos a AI Engineering; entregar evidencia al PO/humano.
-No modificar el codigo bajo revision ni sustituir el gate de aprobacion.
-
-## Limites
-
-Aplican [AGENTS.md](../../AGENTS.md) y el [flujo](../flows/README.md).
-La ausencia actual de producto/Compose impide afirmar pruebas de runtime.
+## No debes
+- No invertir el orden ni ejecutar ambos pasos en paralelo.
+- No ejecutar casos manuales sin criterios aprobados, ambiente autorizado y
+  datos sinteticos seguros; registrar `NO EJECUTADO` y el motivo o bloqueo.
+- No ejecutar pruebas no funcionales de carga, estres o seguridad activa desde
+  el skill de cobertura; ese skill solo las propone y planifica.
+- No iniciar la automatizacion antes de la aprobacion humana de
+  `testing-coverage.md` ni si faltan las precondiciones del skill de
+  implementacion; registrar el bloqueo y detenerse.
+- No inventar evidencia ni presentar como aprobados los casos manuales cuyo
+  resultado no sea satisfactorio o los casos automatizados no ejecutados.

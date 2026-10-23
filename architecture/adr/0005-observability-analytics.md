@@ -14,7 +14,7 @@ Las trazas muestreadas no garantizan cobertura de auditoria o contabilidad.
 OTel para trazas, metricas y logs correlacionados, exportados via Collector a
 Tempo, Prometheus y Loki con Grafana. Java agent para instrumentacion tecnica y
 SDK/manual spans para casos de uso. Evitar spans duplicados y verificar
-propagacion al procesar outbox/inbox y jobs.
+propagacion al procesar outbox y jobs.
 
 Separar tres planos: telemetria tecnica muestreable, eventos de negocio durables
 deduplicados y auditoria de acciones con acceso restringido. Los dos ultimos

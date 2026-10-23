@@ -10,8 +10,8 @@ en contenedores OCI/Compose compatibles con Docker y Podman Desktop, sin Node ho
 
 | Area | HU | Vistas por definir |
 | --- | --- | --- |
-| Onboarding | HU-01 | Pasos, validacion, KYC simulado y activacion |
-| Pagos P2P | HU-02 | Destino/monto, confirmacion, resultado e historial |
+| Onboarding | HU-01 | Registro, login, pasos, validacion de identidad interna y activacion |
+| Pagos entre contactos | HU-02 | Contacto/monto, confirmacion, resultado e historial |
 | Idempotencia | HU-04 | Reintento seguro, referencia original y ausencia de doble cobro |
 | Busqueda de movimientos/conceptos | Extension HU-02 CA3 | Busqueda, filtros y paginacion por aprobar en Q-17 |
 
@@ -19,7 +19,8 @@ Router por capacidades y roles, Reactive Forms y contratos OpenAPI. La UI no
 es una frontera de autorizacion; el servidor valida propiedad, permisos y monto.
 Integracion con BFF mediante sesion protegida, sin tokens en localStorage.
 
-Disenar estados de carga, validacion, error, incertidumbre, expiracion segura y
+Disenar estados de carga, validacion, error, reintento con la misma clave,
+expiracion segura y
 recuperacion, asi como accesibilidad por teclado y lectores. No mostrar exito
 por un HTTP 202 ni habilitar otro pago mientras el anterior pueda ejecutarse.
 Proponer WCAG 2.2 AA como objetivo de verificacion, no conformidad ya obtenida.

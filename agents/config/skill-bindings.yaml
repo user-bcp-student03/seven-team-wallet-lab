@@ -8,9 +8,11 @@ instruction_profiles:
   solution_architect: agents/specialists/architect.md
   security_reviewer: agents/specialists/security.md
 
+# Entradas: carpeta con SKILL.md (p. ej. wallet-testing/test-plan-coverage) o
+# archivo de referencia .md (p. ej. application-security/wallet-access-control.md).
 agents:
   product_analyst:
-    - requirements-refinement
+    - wallet-product-owner
   ai_engineer:
     - wallet-architecture
     - java-backend
@@ -19,23 +21,36 @@ agents:
   solution_architect:
     - wallet-architecture
     - ledger-idempotency
-    - application-security
+    - application-security/wallet-access-control.md
+    - application-security/wallet-payment-integrity.md
   ledger_specialist:
     - ledger-idempotency
   security_reviewer:
-    - application-security
+    - application-security/wallet-access-control.md
+    - application-security/wallet-payment-integrity.md
+    - application-security/wallet-postgres-security.md
+    - application-security/angular-frontend-security.md
+    - application-security/wallet-session-token-security.md
+    - application-security/wallet-telemetry-privacy.md
     - ledger-idempotency
   backend_engineer:
     - java-backend
     - ledger-idempotency
-    - application-security
+    - application-security/wallet-access-control.md
+    - application-security/wallet-payment-integrity.md
+    - application-security/wallet-postgres-security.md
+    - application-security/wallet-session-token-security.md
   frontend_engineer:
     - angular-frontend
-    - application-security
+    - application-security/angular-frontend-security.md
+    - application-security/wallet-session-token-security.md
+    - application-security/wallet-telemetry-privacy.md
   platform_engineer:
     - podman-observability
-    - application-security
+    - application-security/wallet-telemetry-privacy.md
   quality_reviewer:
-    - wallet-testing
+    - wallet-testing/test-plan-coverage
+    - wallet-testing/automated-test-implementation
     - ledger-idempotency
-    - application-security
+    - application-security/wallet-access-control.md
+    - application-security/wallet-payment-integrity.md

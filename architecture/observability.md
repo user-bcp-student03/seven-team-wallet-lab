@@ -7,15 +7,15 @@ Arquitectura objetivo, sin instrumentacion desplegada. Ver
 
 OTLP -> Collector -> Tempo (trazas), Prometheus (metricas), Loki (logs) y Grafana.
 Propagar W3C Trace Context entre API, adaptadores y workers; conservar correlacion
-en outbox/inbox sin convertir un identificador externo no validado en autoridad.
+en outbox sin convertir un identificador externo no validado en autoridad.
 
 | Vista | Senales propuestas | HU |
 | --- | --- | --- |
-| Pagos | Latencia p50/p95/p99, errores por codigo/canal, pendientes e inciertos por edad | HU-02 |
-| Integracion | Callbacks rechazados/duplicados, reintentos, circuit breaker, backlog/edad outbox | HU-02, HU-04 |
+| Pagos | Latencia p50/p95/p99, errores por codigo, pagos rechazados y reintentos con la misma clave | HU-02 |
+| Workers | Reintentos, backlog/edad del outbox | HU-02, HU-04 |
 | Ledger/idempotencia | Operaciones rechazadas, reservas, invariantes, originales y reintentos | HU-02, HU-04 |
 | Busqueda | Lag de proyeccion, tareas Meilisearch fallidas, latencia, edad/backlog y progreso de reindex | Extension HU-02 CA3 |
-| Seguridad | Accesos denegados, filtros de busqueda rechazados, firmas invalidas | HU activas |
+| Seguridad | Accesos denegados, filtros de busqueda rechazados, logins fallidos y bloqueos | HU activas |
 
 Labels de baja cardinalidad: canal, tipo de operacion, codigo y estado acotados.
 No labels con usuario, transaccion, alias o clave. Umbrales, SLO, retencion y

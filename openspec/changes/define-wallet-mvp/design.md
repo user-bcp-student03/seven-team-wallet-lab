@@ -20,13 +20,16 @@ ejecutar crews ni acreditar cumplimiento regulatorio.
 - Esquema OpenSpec estandar `spec-driven`; no inventar claves de workflow o CLI.
 - Delta specs cubren el proceso y el contrato de busqueda solicitado. Las tres HU
   activas se refinan sin confundir este documento con aprobacion de todo el producto.
-- Commands, ledger, idempotencia, outbox e inbox persisten en PostgreSQL. El worker
+- Commands, ledger, idempotencia, outbox, usuarios con clave hasheada y contactos
+  persisten en PostgreSQL. El worker
   proyecta movimientos/conceptos a Meilisearch con consistencia eventual; consulta
   por referencia y comprobaciones financieras siguen en PostgreSQL.
 - No escribir PostgreSQL y Meilisearch en paralelo desde un command. Confirmar
   outbox con la transaccion financiera y avanzar checkpoint solo tras indexacion
   confirmada. Probar replay, eventos fuera de orden y reconstruccion desde SQL.
-- El BFF valida sesion y ownership; el cliente no accede directamente al indice.
+- El BFF valida sesion de servidor y ownership; el cliente no accede directamente
+  al indice. No hay proveedores externos ni simulados (sin WireMock) ni Keycloak:
+  los pagos son transferencias entre contactos en una transaccion local ACID.
 - Todo el entorno se empaqueta en imagenes OCI, con Compose verificable usando
   Docker o el proveedor Compose de Podman Desktop; runner CrewAI incluido.
 - CrewAI se declara en YAML de agentes/tareas; requiere wiring Python y Flow
@@ -36,8 +39,8 @@ ejecutar crews ni acreditar cumplimiento regulatorio.
 
 ## Refinement Scope
 
-1. HU-01: pasos, KYC simulado, activacion, eventos y frontera de duracion.
-2. HU-02: destino/monto, limites, ledger/reservas, incertidumbre y terminalidad.
+1. HU-01: pasos, validacion de identidad interna, usuarios con clave hasheada, activacion, eventos y frontera de duracion.
+2. HU-02: destino (contacto)/monto, limites, ledger, fondos y terminalidad.
 3. HU-04: claves, fingerprint, concurrencia, retencion y recuperacion, incluida
   evidencia que distingue originales/reintentos segun CA4 sin activar HU-06.
 

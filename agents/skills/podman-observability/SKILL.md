@@ -10,7 +10,7 @@ description: "Usar para imagenes OCI, Compose Docker/Podman Desktop, healthcheck
 1. Leer el [plan de entorno](../../../orchestration/README.md) y la
    [observabilidad objetivo](../../../architecture/observability.md).
 2. Planificar imagenes fijadas y builds/checks en contenedores para aplicaciones,
-   PostgreSQL, Meilisearch, identidad, simuladores, OTel y runner CrewAI.
+   PostgreSQL, Meilisearch, OTel y runner CrewAI; sin Keycloak, WireMock ni simuladores.
 3. Comprobar proveedor Compose, maquina/conexion y permisos antes del arranque
    autorizado; no asumir compatibilidad por tener Podman Desktop instalado.
 4. Definir volumenes y credenciales separados, redes internas, healthchecks y

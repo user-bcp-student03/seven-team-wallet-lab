@@ -18,8 +18,8 @@ referencias unicas de operacion. Correcciones mediante compensacion trazable,
 nunca edicion o borrado de asientos ya contabilizados.
 
 Importes con BigDecimal y NUMERIC de precision/escala definidas, moneda explicita
-y validacion del redondeo; nunca float/double. Modelar cuentas de usuario,
-reservas y contrapartidas del simulador despues de resolver Q-10.
+y validacion del redondeo; nunca float/double. Modelar cuentas de usuario y
+reservas, si se necesitan, despues de resolver Q-10 (fondeo ficticio).
 
 Idempotencia persistente por ambito de pagador/canal y clave, con fingerprint
 canonico de monto, moneda y destino. Restriccion UNIQUE y transaccion/locking
@@ -28,9 +28,10 @@ estado pendiente. Payload distinto con misma clave se rechaza sin mover fondos.
 La ventana de intento permite pagos legitimos posteriores con nueva clave; no
 deduplicar para siempre solo por igualdad de pagador/monto/destino.
 
-Estado, reserva/asientos aplicables y outbox se confirman atomicamente. Un crash
-entre envio externo y registro de resultado se recupera con referencia estable,
-consulta del proveedor y conciliacion, no con un nuevo cobro. Retencion durable
+Estado, asientos del ledger y outbox se confirman atomicamente junto con la clave
+en una unica transaccion local; no hay llamada externa que pueda dejar el pago a
+medias. Un crash antes del commit no deja efectos y el cliente reintenta con la
+misma clave. Retencion durable
 segun Q-07; un TTL no borra la evidencia necesaria para prevenir duplicados.
 
 Consultas autoritativas y analitica usan SQL; busqueda de movimientos/conceptos
